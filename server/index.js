@@ -28,6 +28,10 @@ const logger = pino({
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Trust proxy - Required for Render (and other reverse proxy setups)
+// This ensures Express correctly detects HTTPS and sets cookies properly
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors({
   origin: process.env.CORS_ORIGIN || '*',

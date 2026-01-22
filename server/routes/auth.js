@@ -121,7 +121,16 @@ router.post('/login', (req, res) => {
   }
 
   req.session.isAuthenticated = true;
-  return res.redirect('/');
+  
+  // Explicitly save session before redirect (critical for Render/proxy setups)
+  // This ensures the session cookie is set before the redirect happens
+  req.session.save((err) => {
+    if (err) {
+      console.error('Session save error:', err);
+      return res.redirect('/login?error=1');
+    }
+    return res.redirect('/');
+  });
 });
 
 router.post('/logout', (req, res) => {

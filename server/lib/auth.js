@@ -14,6 +14,9 @@ export function sessionMiddleware() {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 1000 * 60 * 60 * 8,
+      // Explicitly set domain to undefined (use current domain)
+      // This helps with Render's domain setup and prevents cookie issues
+      domain: undefined,
     },
   });
 }

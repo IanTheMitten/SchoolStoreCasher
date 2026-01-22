@@ -412,10 +412,6 @@ export default function App() {
   };
 
   if (checkingAuth) {
-    return null;
-  }
-
-  if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -424,6 +420,14 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  if (!isAuthenticated) {
+    // This should not happen as auth check redirects on failure,
+    // but if it does, redirect to login as a fallback
+    const apiUrl = import.meta.env.VITE_API_URL || '';
+    window.location.href = `${apiUrl}/login`;
+    return null;
   }
 
   if (loading) {
