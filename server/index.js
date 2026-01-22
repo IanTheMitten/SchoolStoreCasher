@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import pino from 'pino';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+import { accessSync, constants } from 'fs';
 import { apiKeyAuth, sessionMiddleware, requireAuth } from './lib/auth.js';
 import productsRouter from './routes/products.js';
 import studentsRouter from './routes/students.js';
@@ -8,6 +11,9 @@ import salesRouter from './routes/sales.js';
 import gradesRouter from './routes/grades.js';
 import expensesRouter from './routes/expenses.js';
 import authRouter from './routes/auth.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
@@ -74,6 +80,28 @@ app.use('/api/sales', salesRouter);
 app.use('/api/transactions', salesRouter); // Sales router handles GET /api/transactions
 app.use('/api/grades', gradesRouter);
 app.use('/api/expenses', expensesRouter);
+
+// Serve static files from React build (if it exists)
+const buildPath = join(__dirname, '../../build');
+try {
+  accessSync(buildPath, constants.F_OK);
+  // Build directory exists, serve static files
+  app.use(express.static(buildPath));
+  
+  // For SPA routing, all non-API routes should serve index.html
+  // This must be after all API routes but before 404 handler
+  app.get('*', (req, res) => {
+    // Only serve index.html for non-API, non-auth routes
+    if (!req.path.startsWith('/api') && !req.path.startsWith('/login') && !req.path.startsWith('/logout')) {
+      return res.sendFile(join(buildPath, 'index.html'));
+    }
+    // For API/auth routes that reach here, let 404 handler catch them
+    res.status(404).json({ error: 'Not found' });
+  });
+} catch (err) {
+  // Build directory doesn't exist, skip static file serving
+  logger.warn('React build directory not found, skipping static file serving');
+}
 
 // Error handling middleware
 app.use((err, req, res, next) => {

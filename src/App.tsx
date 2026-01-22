@@ -90,50 +90,51 @@ export default function App() {
     setCurrency(currency);
   }, [currency]);
 
-  // Simple password gate
+  // Backend authentication check
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [passwordInput, setPasswordInput] = useState('');
-  const REQUIRED_PASSWORD = import.meta.env.VITE_APP_PASSWORD || '1234';
-
+  
+  // Check backend authentication status
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem('schoolstore_auth');
-      if (stored === 'ok') {
-        setIsAuthenticated(true);
-      }
-    } catch {
-      // ignore storage errors
-    }
-    setCheckingAuth(false);
-  }, []);
-
-  const handlePasswordSubmit = () => {
-    if (passwordInput === REQUIRED_PASSWORD) {
-      setIsAuthenticated(true);
+    const checkAuth = async () => {
       try {
-        localStorage.setItem('schoolstore_auth', 'ok');
-      } catch {
-        // ignore
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        const response = await fetch(`${apiUrl}/api/ping`, {
+          credentials: 'include', // Include session cookie
+        });
+        
+        if (response.ok) {
+          setIsAuthenticated(true);
+        } else if (response.status === 401) {
+          // Not authenticated, redirect to backend login
+          window.location.href = `${apiUrl}/login`;
+          return;
+        } else {
+          // Other error, try to redirect anyway
+          window.location.href = `${apiUrl}/login`;
+          return;
+        }
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        // If backend is not available, redirect to login
+        const apiUrl = import.meta.env.VITE_API_URL || '';
+        window.location.href = `${apiUrl}/login`;
+        return;
+      } finally {
+        setCheckingAuth(false);
       }
-      setPasswordInput('');
-    } else {
-      toast.error('Incorrect password');
-    }
-  };
+    };
+    
+    checkAuth();
+  }, []);
 
   // Fetch initial data
   useEffect(() => {
+    if (!isAuthenticated) return; // Don't fetch data if not authenticated
+    
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Initialize local database
-        try {
-          await localDb.init();
-        } catch (e) {
-          console.error('Database initialization warning:', e);
-          // Continue anyway - data might already be initialized
-        }
         const [productsData, studentsData, transactionsData, expensesData, teachersData, categoriesData] = await Promise.all([
           productsAPI.getAll(),
           studentsAPI.getAll(),
@@ -417,27 +418,9 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm space-y-4">
-          <h1 className="text-lg font-semibold text-gray-900 text-center">School Store Login</h1>
-          <p className="text-sm text-gray-600 text-center">
-            Please enter the password to access the system.
-          </p>
-          <input
-            type="password"
-            className="w-full border rounded px-3 py-2 text-sm"
-            placeholder="Password"
-            value={passwordInput}
-            onChange={(e) => setPasswordInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handlePasswordSubmit();
-            }}
-          />
-          <button
-            onClick={handlePasswordSubmit}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded"
-          >
-            Enter
-          </button>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking authentication...</p>
         </div>
       </div>
     );
