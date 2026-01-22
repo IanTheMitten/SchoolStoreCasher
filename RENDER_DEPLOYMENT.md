@@ -205,26 +205,148 @@ If tables exist, migration was successful.
 
 ---
 
-## Step 7: Connect Frontend (If Separate)
+## Step 7: Connect Frontend
 
-If your frontend is a separate service:
+You have two options for deploying the frontend:
 
-1. **Update Frontend API URL**
-   - Point your frontend to: `https://your-backend.onrender.com/api`
+### Option A: Serve Frontend from Backend (Recommended - Integrated)
 
-2. **Set CORS_ORIGIN**
-   - In backend environment variables, set:
-     ```
-     CORS_ORIGIN=https://your-frontend.onrender.com
-     ```
+The backend is configured to serve the React app automatically. This is the simplest setup.
 
-3. **Frontend Fetch Configuration**
-   - Ensure fetch requests include credentials:
-     ```javascript
-     fetch('https://your-backend.onrender.com/api/products', {
-       credentials: 'include'
-     })
-     ```
+#### 7.1 Build the Frontend
+
+On your local machine or in CI/CD:
+
+```bash
+# From project root
+cd /Users/ian_lee/Documents/Projects/SchoolStoreCasher
+
+# Install frontend dependencies
+npm install
+
+# Build the React app
+npm run build
+```
+
+This creates a `build/` directory with production-ready files.
+
+#### 7.2 Include Build in Deployment
+
+**Option 1: Commit build folder to Git (Simple)**
+- After running `npm run build`, commit the `build/` folder to your repository
+- Render will deploy it automatically with your backend
+- The backend will automatically serve files from `build/` directory
+
+**Option 2: Build during Render deployment (Advanced)**
+1. In Render web service settings, update **Build Command**:
+   ```bash
+   cd .. && npm install && npm run build && cd server && npm install
+   ```
+2. Update **Root Directory** to: `server` (keep as is)
+3. The build will be created in the parent directory, accessible to the server
+
+#### 7.3 Verify Frontend is Served
+
+After deployment:
+1. Visit your Render service URL: `https://your-service.onrender.com`
+2. You should see the login page (if not authenticated)
+3. After login, you should see the cashier interface
+
+**No additional configuration needed** - the backend automatically:
+- Serves static files from `build/` directory
+- Handles SPA routing (all routes serve `index.html`)
+- Protects routes with authentication
+
+---
+
+### Option B: Deploy Frontend as Separate Service
+
+If you prefer to deploy the frontend separately (e.g., on Vercel, Netlify, or another Render service):
+
+#### 7.1 Build and Deploy Frontend
+
+1. **Build the frontend:**
+   ```bash
+   npm install
+   npm run build
+   ```
+
+2. **Deploy `build/` folder** to your hosting service
+
+3. **Set environment variable** in your frontend service:
+   ```
+   VITE_API_URL=https://your-backend.onrender.com
+   ```
+   ⚠️ **Note**: Vite environment variables must be set at **build time**, not runtime. Rebuild after setting.
+
+#### 7.2 Configure Backend CORS
+
+In your backend Render service, add environment variable:
+
+```
+CORS_ORIGIN=https://your-frontend-domain.com
+```
+
+Replace with your actual frontend URL (e.g., `https://your-app.vercel.app`)
+
+#### 7.3 Frontend Configuration
+
+The frontend is already configured to:
+- Use `VITE_API_URL` environment variable (or default to same origin)
+- Include credentials in all API calls
+- Redirect to `/login` if authentication fails
+
+**Example `.env` file for frontend:**
+```env
+VITE_API_URL=https://your-backend.onrender.com
+```
+
+#### 7.4 Verify Connection
+
+1. Visit your frontend URL
+2. You should be redirected to: `https://your-backend.onrender.com/login`
+3. After login, you'll be redirected back to the frontend
+4. API calls should work with session cookies
+
+---
+
+### Frontend Environment Variables Reference
+
+| Variable | Purpose | Required | Default |
+|----------|---------|----------|---------|
+| `VITE_API_URL` | Backend API URL | No* | `''` (same origin) |
+| `VITE_USE_LOCAL` | Use local IndexedDB instead of backend | No | `false` |
+
+\* **Required if frontend is on different domain than backend**
+
+**Example values:**
+```env
+# For separate frontend deployment
+VITE_API_URL=https://school-store-backend.onrender.com
+
+# For local development
+VITE_API_URL=http://localhost:4000
+
+# To use local IndexedDB (offline mode)
+VITE_USE_LOCAL=true
+```
+
+---
+
+### Quick Setup Checklist
+
+**For Integrated Deployment (Option A):**
+- ✅ Run `npm run build` locally
+- ✅ Commit `build/` folder to Git
+- ✅ Deploy backend (frontend included automatically)
+- ✅ No additional configuration needed
+
+**For Separate Deployment (Option B):**
+- ✅ Build frontend: `npm run build`
+- ✅ Deploy `build/` to frontend hosting service
+- ✅ Set `VITE_API_URL` in frontend build environment
+- ✅ Set `CORS_ORIGIN` in backend environment variables
+- ✅ Ensure both services are accessible via HTTPS
 
 ---
 
@@ -281,6 +403,32 @@ If your frontend is a separate service:
 - Check session is persisting (cookie should be present)
 - Ensure frontend includes `credentials: 'include'` in fetch requests
 - Verify `CORS_ORIGIN` matches your frontend URL exactly
+
+### Issue: Frontend shows blank page or 404 after login
+
+**Solution**:
+- Verify `build/` directory exists and contains `index.html`
+- Check that `build/` folder is committed to Git (if using Option A)
+- Verify backend logs show "React build directory not found" warning
+- Ensure build was created with `npm run build` from project root
+- Check that static file serving is working (look for static file requests in logs)
+
+### Issue: Frontend can't connect to backend API
+
+**Solution**:
+- Verify `VITE_API_URL` is set correctly (if frontend is separate)
+- Check CORS settings: `CORS_ORIGIN` should match frontend URL exactly
+- Ensure both services use HTTPS in production
+- Check browser console for CORS errors
+- Verify API calls include `credentials: 'include'` (already configured in code)
+
+### Issue: Redirect loop after login
+
+**Solution**:
+- Check that session cookie is being set (browser DevTools → Application → Cookies)
+- Verify `SESSION_SECRET` is set in backend environment variables
+- Ensure `NODE_ENV=production` is set (affects cookie security settings)
+- Check that frontend and backend are on same domain (for integrated setup) or CORS is configured (for separate setup)
 
 ### Issue: Build fails
 
@@ -371,7 +519,41 @@ Before deploying, ensure you have:
 
 ## Local Testing Before Deployment
 
-Test locally with the same environment variables:
+### Test Backend with Frontend (Integrated)
+
+1. **Build the frontend:**
+   ```bash
+   # From project root
+   npm install
+   npm run build
+   ```
+
+2. **Set up backend environment:**
+   ```bash
+   cd server
+   
+   # Set environment variables
+   export DATABASE_URL="postgres://user:pass@localhost:5432/school_store"
+   export SITE_PASSWORD="test-password"
+   export SESSION_SECRET="test-secret-$(openssl rand -hex 16)"
+   export NODE_ENV="development"
+   
+   # Run migration
+   npm run migrate
+   
+   # Start server
+   npm start
+   ```
+
+3. **Test the application:**
+   - Visit `http://localhost:4000` (should redirect to `/login`)
+   - Enter the password you set in `SITE_PASSWORD`
+   - After login, you should see the cashier interface
+   - All API calls should work automatically
+
+### Test Backend Only (API Testing)
+
+If you want to test just the backend API:
 
 ```bash
 cd server
@@ -389,7 +571,10 @@ npm run migrate
 npm run dev
 ```
 
-Then test at `http://localhost:4000/login`
+Then test API endpoints:
+- Health check: `curl http://localhost:4000/api/ping`
+- Login: `curl -X POST http://localhost:4000/login -d "password=test-password" -c cookies.txt`
+- Products (with session): `curl http://localhost:4000/api/products -b cookies.txt`
 
 ---
 
@@ -413,6 +598,48 @@ Your PostgreSQL database connection info is in:
 ```
 Dashboard → PostgreSQL → Your Database → Connect
 ```
+
+---
+
+## Frontend Connection Quick Reference
+
+### Integrated Setup (Frontend served by Backend)
+
+**Steps:**
+1. Build: `npm run build` (creates `build/` folder)
+2. Commit `build/` folder to Git
+3. Deploy backend on Render
+4. Done! Frontend is automatically served
+
+**Pros:**
+- ✅ Single deployment
+- ✅ No CORS configuration needed
+- ✅ Simpler setup
+- ✅ Session cookies work automatically
+
+**Cons:**
+- ❌ Frontend rebuild requires backend redeploy
+- ❌ Can't use CDN for static assets
+
+---
+
+### Separate Frontend Service
+
+**Steps:**
+1. Build: `npm run build`
+2. Deploy `build/` to Vercel/Netlify/Render
+3. Set `VITE_API_URL` in frontend build environment
+4. Set `CORS_ORIGIN` in backend environment variables
+
+**Pros:**
+- ✅ Independent deployments
+- ✅ Can use CDN/edge network
+- ✅ Better for large-scale apps
+
+**Cons:**
+- ❌ More complex setup
+- ❌ Requires CORS configuration
+- ❌ Need to manage two services
 
 ---
 
