@@ -60,6 +60,7 @@ Complete step-by-step guide for deploying the School Store backend to Render wit
    - **Root Directory**: `server` ⚠️ **Important**: Set this to `server` since your backend code is in the `server/` folder
    - **Runtime**: `Node`
    - **Build Command**: `npm install`
+     - ⚠️ **Note**: This is a Node.js backend that runs directly (no build step needed). `npm install` installs dependencies, then `node index.js` runs the server.
    - **Start Command**: `node index.js`
 
 4. **Advanced Settings** (Optional but Recommended)

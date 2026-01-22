@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js",
-    "migrate": "psql \"$DATABASE_URL\" -f migrations/001_init.sql",
+    "migrate": "node migrate.js",
     "test": "NODE_ENV=test jest --runInBand",
     "test:watch": "NODE_ENV=test jest --watch"
   },
