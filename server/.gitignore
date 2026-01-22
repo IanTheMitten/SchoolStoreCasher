@@ -1,0 +1,12 @@
+node_modules/
+*.log
+logs/
+*.backup
+*.tmp
+db.json
+db.test.json
+.env
+data/
+coverage/
+.DS_Store
+

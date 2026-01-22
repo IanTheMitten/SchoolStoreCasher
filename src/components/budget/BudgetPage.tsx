@@ -1,0 +1,117 @@
+import { useState } from 'react';
+import { DateRangeSelector } from './DateRangeSelector';
+import { KPICards } from './KPICards';
+import { RevenueChart } from './RevenueChart';
+import { RevenueByProductTable } from './RevenueByProductTable';
+import { ExpensesTable } from './ExpensesTable';
+import { TransactionsTable } from './TransactionsTable';
+import type { Transaction, Expense, Product, Student } from '../../App';
+
+interface BudgetPageProps {
+  transactions: Transaction[];
+  expenses: Expense[];
+  products: Product[];
+  students?: Student[];
+  onAddExpense: (expense: Expense) => void;
+}
+
+export type DateRange = 'today' | 'yesterday' | 'last7days' | 'thisMonth' | 'lastMonth' | 'custom';
+
+export function BudgetPage({ transactions, expenses, products, students = [], onAddExpense }: BudgetPageProps) {
+  const [dateRange, setDateRange] = useState<DateRange>('today');
+  const [customStart, setCustomStart] = useState<Date | null>(null);
+  const [customEnd, setCustomEnd] = useState<Date | null>(null);
+
+  const getDateRangeFilter = () => {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (dateRange) {
+      case 'today':
+        return {
+          start: today,
+          end: new Date(today.getTime() + 24 * 60 * 60 * 1000)
+        };
+      case 'yesterday':
+        const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
+        return { start: yesterday, end: today };
+      case 'last7days':
+        const week = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+        return { start: week, end: new Date() };
+      case 'thisMonth':
+        return {
+          start: new Date(now.getFullYear(), now.getMonth(), 1),
+          end: new Date()
+        };
+      case 'lastMonth':
+        return {
+          start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
+          end: new Date(now.getFullYear(), now.getMonth(), 1)
+        };
+      case 'custom':
+        return {
+          start: customStart || today,
+          end: customEnd || new Date()
+        };
+      default:
+        return { start: today, end: new Date() };
+    }
+  };
+
+  const range = getDateRangeFilter();
+
+  const filteredTransactions = transactions.filter(
+    t => t.timestamp >= range.start && t.timestamp <= range.end
+  );
+
+  const filteredExpenses = expenses.filter(
+    e => e.date >= range.start && e.date <= range.end
+  );
+
+  return (
+    <div className="h-[calc(100vh-70px)] overflow-auto">
+      <div className="p-6 max-w-[1600px] mx-auto space-y-6">
+        {/* Date Range Selector */}
+        <DateRangeSelector
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
+          customStart={customStart}
+          customEnd={customEnd}
+          onCustomStartChange={setCustomStart}
+          onCustomEndChange={setCustomEnd}
+        />
+
+        {/* KPI Cards */}
+        <KPICards
+          transactions={filteredTransactions}
+          expenses={filteredExpenses}
+        />
+
+        {/* Revenue vs Expense Chart */}
+        <RevenueChart
+          transactions={filteredTransactions}
+          expenses={filteredExpenses}
+          dateRange={range}
+        />
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          {/* Revenue By Product */}
+          <RevenueByProductTable
+            transactions={filteredTransactions}
+            products={products}
+          />
+
+          {/* Expenses */}
+          <ExpensesTable
+            expenses={filteredExpenses}
+            products={products}
+            onAddExpense={onAddExpense}
+          />
+        </div>
+
+        {/* Transactions Table */}
+        <TransactionsTable transactions={filteredTransactions} students={students} />
+      </div>
+    </div>
+  );
+}

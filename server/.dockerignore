@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log
+*.test.js
+tests/
+coverage/
+.env
+*.backup
+*.tmp
+logs/
+data/
+
