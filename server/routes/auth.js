@@ -117,6 +117,10 @@ router.post('/login', (req, res) => {
   const expected = process.env.SITE_PASSWORD;
 
   if (!password || password !== expected) {
+    // Return JSON for API calls, redirect for HTML form submissions
+    if (req.accepts('json')) {
+      return res.status(401).json({ error: 'Invalid password' });
+    }
     return res.redirect('/login?error=1');
   }
 
@@ -127,7 +131,15 @@ router.post('/login', (req, res) => {
   req.session.save((err) => {
     if (err) {
       console.error('Session save error:', err);
+      if (req.accepts('json')) {
+        return res.status(500).json({ error: 'Session save failed' });
+      }
       return res.redirect('/login?error=1');
+    }
+    
+    // Return JSON for API calls, redirect for HTML form submissions
+    if (req.accepts('json')) {
+      return res.json({ ok: true, message: 'Login successful' });
     }
     return res.redirect('/');
   });

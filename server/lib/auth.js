@@ -26,10 +26,9 @@ export function requireAuth(req, res, next) {
     return next();
   }
 
-  if (req.accepts('html')) {
-    return res.redirect('/login');
-  }
-
+  // For API routes, always return JSON 401 (no HTML redirects)
+  // This works for both integrated and separate frontend deployments
+  // The frontend will handle redirecting to login page
   return res.status(401).json({ error: 'Authentication required' });
 }
 
