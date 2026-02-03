@@ -14,9 +14,6 @@ export function sessionMiddleware() {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 1000 * 60 * 60 * 8,
-      // Explicitly set domain to undefined (use current domain)
-      // This helps with Render's domain setup and prevents cookie issues
-      domain: undefined,
     },
   });
 }
@@ -26,9 +23,10 @@ export function requireAuth(req, res, next) {
     return next();
   }
 
-  // For API routes, always return JSON 401 (no HTML redirects)
-  // This works for both integrated and separate frontend deployments
-  // The frontend will handle redirecting to login page
+  if (req.accepts('html')) {
+    return res.redirect('/login');
+  }
+
   return res.status(401).json({ error: 'Authentication required' });
 }
 

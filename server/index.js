@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import pino from 'pino';
 import { fileURLToPath } from 'url';
-import { dirname, join, resolve } from 'path';
+import { dirname, join } from 'path';
 import { accessSync, constants } from 'fs';
 import { apiKeyAuth, sessionMiddleware, requireAuth } from './lib/auth.js';
 import productsRouter from './routes/products.js';
@@ -27,10 +27,6 @@ const logger = pino({
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-
-// Trust proxy - Required for Render (and other reverse proxy setups)
-// This ensures Express correctly detects HTTPS and sets cookies properly
-app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors({
@@ -66,19 +62,18 @@ if (process.env.API_KEY) {
   app.use('/api', apiKeyAuth);
 }
 
-// Auth routes (login/logout) - available for both integrated and separate frontend
+// Auth routes (login/logout)
 app.use('/', authRouter);
 
-// Health check (public, no auth required)
+// Protect all app routes behind authentication
+app.use(requireAuth);
+
+// Health check
 app.get('/api/ping', (req, res) => {
   res.json({ ok: true, timestamp: new Date().toISOString() });
 });
 
-// Protect API routes behind authentication
-// Only protect /api/* routes, not static file serving
-app.use('/api', requireAuth);
-
-// API Routes (all protected by requireAuth above)
+// Routes
 app.use('/api/products', productsRouter);
 app.use('/api/students', studentsRouter);
 app.use('/api/sales', salesRouter);
@@ -86,48 +81,26 @@ app.use('/api/transactions', salesRouter); // Sales router handles GET /api/tran
 app.use('/api/grades', gradesRouter);
 app.use('/api/expenses', expensesRouter);
 
-// Serve static files from React build (if it exists and SERVE_FRONTEND is not 'false')
-// This allows backend to work as API-only when frontend is deployed separately
-const serveFrontend = process.env.SERVE_FRONTEND !== 'false';
+// Serve static files from React build (if it exists)
 const buildPath = join(__dirname, '../../build');
-
-if (serveFrontend) {
-  try {
-    accessSync(buildPath, constants.F_OK);
-    const indexPath = resolve(buildPath, 'index.html'); // Use resolve for absolute path
-    accessSync(indexPath, constants.F_OK); // Verify index.html exists
-    
-    // Build directory exists, serve static files
-    // Configure static middleware to serve index.html for root path
-    app.use(express.static(buildPath, { index: false })); // Don't auto-serve index.html, we'll handle it
-    
-    // For SPA routing, all non-API routes should serve index.html
-    // This must be after all API routes but before 404 handler
-    app.get('*', (req, res, next) => {
-      // Skip if this is an API route or auth route
-      if (req.path.startsWith('/api') || req.path.startsWith('/login') || req.path.startsWith('/logout')) {
-        logger.debug({ path: req.path }, 'Skipping SPA route - API/auth route');
-        return next(); // Pass to 404 handler
-      }
-      
-      // For all other routes (including root /), serve index.html for SPA routing
-      logger.debug({ path: req.path }, 'Serving index.html for SPA route');
-      res.sendFile(indexPath, (err) => {
-        if (err) {
-          logger.error({ error: err.message, path: req.path, stack: err.stack }, 'Error serving index.html');
-          next(err); // Pass to error handler
-        } else {
-          logger.debug({ path: req.path }, 'Successfully served index.html');
-        }
-      });
-    });
-    logger.info(`Serving React frontend from ${buildPath}`);
-  } catch (err) {
-    // Build directory doesn't exist, skip static file serving
-    logger.warn({ error: err.message, buildPath }, 'React build directory not found, skipping static file serving');
-  }
-} else {
-  logger.info('Frontend serving disabled (SERVE_FRONTEND=false). Backend is API-only.');
+try {
+  accessSync(buildPath, constants.F_OK);
+  // Build directory exists, serve static files
+  app.use(express.static(buildPath));
+  
+  // For SPA routing, all non-API routes should serve index.html
+  // This must be after all API routes but before 404 handler
+  app.get('*', (req, res) => {
+    // Only serve index.html for non-API, non-auth routes
+    if (!req.path.startsWith('/api') && !req.path.startsWith('/login') && !req.path.startsWith('/logout')) {
+      return res.sendFile(join(buildPath, 'index.html'));
+    }
+    // For API/auth routes that reach here, let 404 handler catch them
+    res.status(404).json({ error: 'Not found' });
+  });
+} catch (err) {
+  // Build directory doesn't exist, skip static file serving
+  logger.warn('React build directory not found, skipping static file serving');
 }
 
 // Error handling middleware
