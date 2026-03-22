@@ -502,6 +502,7 @@ export default function App() {
           expenses={expenses}
           products={products}
           students={students}
+          teachers={teachers}
           onAddExpense={handleAddExpense}
         />
       )}
