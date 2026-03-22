@@ -8,10 +8,11 @@ import type { Product, Student, CartItem, Transaction } from '../../App';
 interface CashierPageProps {
   products: Product[];
   students: Student[];
+  teachers?: any[];
   onAddTransaction: (transaction: Transaction) => void;
 }
 
-export function CashierPage({ products, students, onAddTransaction }: CashierPageProps) {
+export function CashierPage({ products, students, teachers = [], onAddTransaction }: CashierPageProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -104,6 +105,7 @@ export function CashierPage({ products, students, onAddTransaction }: CashierPag
         <CartSection
           cart={cart}
           students={students}
+          teachers={teachers}
           onUpdateQuantity={handleUpdateQuantity}
           onRemoveFromCart={handleRemoveFromCart}
           onCompleteTransaction={handleCompleteTransaction}

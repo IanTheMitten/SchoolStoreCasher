@@ -10,6 +10,7 @@ import type { CartItem, Student, Transaction } from '../../App';
 interface CartSectionProps {
   cart: CartItem[];
   students: Student[];
+  teachers?: any[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveFromCart: (productId: string) => void;
   onCompleteTransaction: (transaction: Transaction) => void;
@@ -20,6 +21,7 @@ const TAX_RATE = 0.0; // Set to 0 for no tax, or e.g., 0.08 for 8%
 export function CartSection({
   cart,
   students,
+  teachers = [],
   onUpdateQuantity,
   onRemoveFromCart,
   onCompleteTransaction
@@ -150,6 +152,7 @@ export function CartSection({
           tax={tax}
           cart={cart}
           students={students}
+          teachers={teachers}
           onComplete={handlePaymentComplete}
           onClose={() => setPaymentMode(null)}
         />
