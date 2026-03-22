@@ -21,6 +21,8 @@ interface AddExpenseModalProps {
   onClose: () => void;
 }
 
+const NONE_PRODUCT = '__none__';
+
 const expenseCategories = [
   'Inventory Purchase',
   'Utilities',
@@ -36,7 +38,7 @@ export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalPro
     amount: '',
     category: 'Inventory Purchase',
     note: '',
-    productId: '',
+    productId: NONE_PRODUCT,
     receiptRef: ''
   });
 
@@ -58,7 +60,7 @@ export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalPro
       category: formData.category,
       amount,
       note: formData.note,
-      productId: formData.productId || undefined,
+      productId: formData.productId === NONE_PRODUCT ? undefined : formData.productId,
       receiptRef: formData.receiptRef || undefined
     };
 
@@ -75,7 +77,7 @@ export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalPro
 
         <div className="space-y-4 py-4">
           <div>
-            <Label htmlFor="amount">Amount (₩) *</Label>
+            <Label htmlFor="amount">Amount *</Label>
             <Input
               id="amount"
               type="number"
@@ -113,7 +115,7 @@ export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalPro
                 <SelectValue placeholder="Select product..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value={NONE_PRODUCT}>None</SelectItem>
                 {products.map(product => (
                   <SelectItem key={product.id} value={product.id}>
                     {product.name}

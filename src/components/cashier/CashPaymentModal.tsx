@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Search } from 'lucide-react';
 import type { CartItem, Transaction, Student } from '../../App';
-import { formatKRW } from '../../utils/formatCurrency';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { roundMoney } from '../../utils/formatCurrency';
 
 interface CashPaymentModalProps {
   total: number;
@@ -25,14 +26,15 @@ export function CashPaymentModal({
   onComplete,
   onClose
 }: CashPaymentModalProps) {
+  const { formatCurrency } = useCurrency();
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [showStudentSelector, setShowStudentSelector] = useState(false);
   const [studentSearch, setStudentSearch] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const change = cashReceived - total;
+  const change = roundMoney((cashReceived || 0) - total);
 
   const quickAmounts = [
-    { label: 'Exact', value: Math.round(total), accumulate: false },
+    { label: 'Exact', value: total, accumulate: false },
     { label: '₩50', value: 50 },
     { label: '₩100', value: 100 },
     { label: '₩500', value: 500 },
@@ -46,9 +48,9 @@ export function CashPaymentModal({
 
   const handleQuickAmount = (amount: number, accumulate = true) => {
     if (accumulate) {
-      setCashReceived((prev) => Math.round((prev || 0) + amount));
+      setCashReceived((prev) => roundMoney((prev || 0) + amount));
     } else {
-      setCashReceived(Math.round(amount));
+      setCashReceived(amount);
     }
   };
 
@@ -58,7 +60,9 @@ export function CashPaymentModal({
       alert('Please associate the sale with a customer before completing the transaction.');
       return;
     }
-    if (isNaN(received) || received < total) {
+    const receivedRounded = roundMoney(received);
+    const totalRounded = roundMoney(total);
+    if (isNaN(received) || receivedRounded < totalRounded) {
       return;
     }
 
@@ -70,8 +74,8 @@ export function CashPaymentModal({
       tax,
       total,
       paymentMethod: 'cash',
-      cashReceived: received,
-      change: received - total,
+      cashReceived: receivedRounded,
+      change: roundMoney(received - total),
       studentId: selectedStudent.id
     };
 
@@ -89,7 +93,7 @@ export function CashPaymentModal({
           {/* Total */}
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="text-gray-600 text-sm">Amount Due</div>
-            <div className="text-gray-900">{formatKRW(total)}</div>
+            <div className="text-gray-900">{formatCurrency(total)}</div>
           </div>
 
           {/* Quick Amounts */}
@@ -110,7 +114,7 @@ export function CashPaymentModal({
           <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
             <div className="text-blue-600 text-sm mb-1">Cash Received</div>
             <div className="text-blue-900 text-center">
-              {formatKRW(cashReceived || 0)}
+              {formatCurrency(cashReceived || 0)}
             </div>
           </div>
 
@@ -119,7 +123,7 @@ export function CashPaymentModal({
             <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
               <div className="text-green-600 text-sm mb-1">Change</div>
               <div className="text-green-900 text-center">
-                {formatKRW(change)}
+                {formatCurrency(change)}
               </div>
             </div>
           )}

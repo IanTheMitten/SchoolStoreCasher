@@ -1,6 +1,7 @@
 import { Plus, Settings, Trash2, History } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Product } from '../../App';
 
 interface InventoryTableProps {
@@ -20,6 +21,8 @@ export function InventoryTable({
   onAdjust,
   onDelete
 }: InventoryTableProps) {
+  const { formatCurrency } = useCurrency();
+
   const getStockBadge = (product: Product) => {
     const ratio = product.stock / product.reorderLevel;
     
@@ -37,14 +40,6 @@ export function InventoryTable({
   const formatDate = (date?: Date) => {
     if (!date) return 'Never';
     return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric' }).format(date);
-  };
-
-  const formatKRW = (amount: number) => {
-    try {
-      return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(Math.round(amount));
-    } catch (e) {
-      return `₩${Math.round(amount)}`;
-    }
   };
 
   return (
@@ -85,8 +80,8 @@ export function InventoryTable({
                 <td className="p-3">
                   <Badge variant="outline" className="text-xs">{product.category}</Badge>
                 </td>
-                <td className="p-3 text-right text-gray-900 text-sm">{formatKRW(product.unitCost)}</td>
-                <td className="p-3 text-right text-gray-900 text-sm">{formatKRW(product.price)}</td>
+                <td className="p-3 text-right text-gray-900 text-sm">{formatCurrency(product.unitCost)}</td>
+                <td className="p-3 text-right text-gray-900 text-sm">{formatCurrency(product.price)}</td>
                 <td className="p-3 text-center text-gray-900">{product.stock}</td>
                 <td className="p-3 text-center text-gray-600 text-sm">{product.reorderLevel}</td>
                 <td className="p-3 text-center">

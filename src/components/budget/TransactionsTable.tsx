@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction, Student } from '../../App';
-import { formatKRW } from '../../utils/formatCurrency';
 
 interface TransactionsTableProps {
   transactions: Transaction[];
@@ -12,6 +12,7 @@ interface TransactionsTableProps {
 }
 
 export function TransactionsTable({ transactions, students = [] }: TransactionsTableProps) {
+  const { formatCurrency } = useCurrency();
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedTx, setExpandedTx] = useState<string | null>(null);
 
@@ -82,9 +83,8 @@ export function TransactionsTable({ transactions, students = [] }: TransactionsT
             </thead>
             <tbody className="divide-y divide-gray-200">
               {transactions.slice().reverse().map(tx => (
-                <>
+                <Fragment key={tx.id}>
                   <tr
-                    key={tx.id}
                     className="hover:bg-gray-50 cursor-pointer"
                     onClick={() => setExpandedTx(expandedTx === tx.id ? null : tx.id)}
                   >
@@ -110,9 +110,16 @@ export function TransactionsTable({ transactions, students = [] }: TransactionsT
                     <td className="p-3">
                       <Badge variant="outline">{getPaymentMethodLabel(tx.paymentMethod)}</Badge>
                     </td>
-                    <td className="p-3 text-right text-gray-900">{formatKRW(tx.total)}</td>
+                    <td className="p-3 text-right text-gray-900">{formatCurrency(tx.total)}</td>
                     <td className="p-3 text-center">
-                      <Button variant="ghost" size="sm">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedTx(expandedTx === tx.id ? null : tx.id);
+                        }}
+                      >
                         {expandedTx === tx.id ? (
                           <ChevronUp className="size-4" />
                         ) : (
@@ -127,13 +134,16 @@ export function TransactionsTable({ transactions, students = [] }: TransactionsT
                       <td colSpan={6} className="p-3 bg-gray-50">
                         <div className="space-y-2">
                           <div className="text-gray-600 text-xs mb-2">Items:</div>
-                          {tx.items.map(item => (
-                            <div key={item.product.id} className="flex justify-between text-xs">
+                          {tx.items.map((item, idx) => (
+                            <div
+                              key={`${item.product.id}-${idx}`}
+                              className="flex justify-between text-xs"
+                            >
                               <span className="text-gray-900">
-                                {item.product.name} × {item.quantity}
+                                {item.product.name || item.product.id} × {item.quantity}
                               </span>
                               <span className="text-gray-600">
-                                {formatKRW(item.product.price * item.quantity)}
+                                {formatCurrency(item.product.price * item.quantity)}
                               </span>
                             </div>
                           ))}
@@ -141,7 +151,7 @@ export function TransactionsTable({ transactions, students = [] }: TransactionsT
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               ))}
             </tbody>
           </table>

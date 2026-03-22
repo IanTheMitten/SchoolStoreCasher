@@ -1,7 +1,7 @@
 import { Dialog, DialogContent } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Printer, Download, X } from 'lucide-react';
-import { formatKRW } from '../../utils/formatCurrency';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction } from '../../App';
 
 interface ReceiptModalProps {
@@ -10,6 +10,7 @@ interface ReceiptModalProps {
 }
 
 export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
+  const { formatCurrency } = useCurrency();
   const handlePrint = () => {
     window.print();
   };
@@ -76,11 +77,11 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
                   <div className="flex-1">
                     <div className="text-gray-900">{item.product.name}</div>
                     <div className="text-gray-500 text-xs">
-                      {item.quantity} × {formatKRW(item.product.price)}
+                      {item.quantity} × {formatCurrency(item.product.price)}
                     </div>
                   </div>
                   <div className="text-gray-900">
-                    {formatKRW(item.quantity * item.product.price)}
+                    {formatCurrency(item.quantity * item.product.price)}
                   </div>
                 </div>
               ))}
@@ -91,28 +92,28 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
           <div className="border-t border-gray-200 pt-4 space-y-2 text-sm">
             <div className="flex justify-between text-gray-600">
               <span>Subtotal</span>
-              <span>{formatKRW(transaction.subtotal)}</span>
+              <span>{formatCurrency(transaction.subtotal)}</span>
             </div>
             {transaction.tax > 0 && (
               <div className="flex justify-between text-gray-600">
                 <span>Tax</span>
-                <span>{formatKRW(transaction.tax)}</span>
+                <span>{formatCurrency(transaction.tax)}</span>
               </div>
             )}
             <div className="flex justify-between text-gray-900 pt-2 border-t border-gray-200">
               <span>Total</span>
-              <span>{formatKRW(transaction.total)}</span>
+              <span>{formatCurrency(transaction.total)}</span>
             </div>
 
             {transaction.paymentMethod === 'cash' && transaction.cashReceived && (
               <>
                 <div className="flex justify-between text-gray-600">
                   <span>Cash Received</span>
-                  <span>{formatKRW(transaction.cashReceived)}</span>
+                  <span>{formatCurrency(transaction.cashReceived)}</span>
                 </div>
                 <div className="flex justify-between text-green-600">
                   <span>Change</span>
-                  <span>{formatKRW(transaction.change || 0)}</span>
+                  <span>{formatCurrency(transaction.change || 0)}</span>
                 </div>
               </>
             )}

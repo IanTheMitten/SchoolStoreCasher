@@ -1,47 +1,34 @@
-export type CurrencyCode = 'KRW' | 'USD' | 'EUR';
+import type { CurrencyCode } from '../contexts/CurrencyContext';
 
-// Global currency state used by helpers below.
-// We also expose setter/getter so the app can control it.
-let currentCurrency: CurrencyCode = 'KRW';
-
-export function setCurrency(currency: CurrencyCode) {
-  currentCurrency = currency;
+/** Rounds monetary values to 2 decimal places to avoid floating-point errors. */
+export function roundMoney(amount: number): number {
+  return Math.round(amount * 100) / 100;
 }
 
-export function getCurrency(): CurrencyCode {
-  return currentCurrency;
-}
-
+// Fallback for use outside React (e.g. in non-component code)
+// Uses KRW as default; components should use useCurrency() for dynamic currency
 export function formatCurrency(
   amount: number | undefined | null,
-  currency: CurrencyCode = currentCurrency
-) {
+  currency: CurrencyCode = 'KRW'
+): string {
   const value = typeof amount === 'number' ? amount : 0;
-
   try {
     const locale = currency === 'KRW' ? 'ko-KR' : undefined;
     const maximumFractionDigits = currency === 'KRW' ? 0 : 2;
-
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currency,
       maximumFractionDigits,
     }).format(value);
   } catch {
-    const symbol =
-      currency === 'KRW' ? '₩' :
-      currency === 'USD' ? '$' :
-      currency === 'EUR' ? '€' : '';
-
+    const symbol = currency === 'KRW' ? '₩' : currency === 'USD' ? '$' : '€';
     const digits = currency === 'KRW' ? 0 : 2;
     return `${symbol}${value.toFixed(digits)}`;
   }
 }
 
-// Backwards-compatible helper: existing code that calls formatKRW will now
-// format using the currently selected currency.
 export function formatKRW(amount: number | undefined | null) {
-  return formatCurrency(amount);
+  return formatCurrency(amount, 'KRW');
 }
 
 export default formatKRW;

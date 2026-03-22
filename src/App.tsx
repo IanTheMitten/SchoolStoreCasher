@@ -9,7 +9,6 @@ import { StudentManagement } from './components/StudentManagement';
 import { GradesPage } from './components/grades/GradesPage';
 import { productsAPI, studentsAPI, salesAPI, expensesAPI, teachersAPI, categoriesAPI } from './services/api';
 import { localDb } from './services/localDb';
-import { setCurrency, type CurrencyCode } from './utils/formatCurrency';
 
 export interface Product {
   id: string;
@@ -72,7 +71,12 @@ export interface Expense {
   receiptRef?: string;
 }
 
+const DEFAULT_PASSWORD = import.meta.env.VITE_APP_PASSWORD || 'schoolstore';
+
 export default function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [passwordInput, setPasswordInput] = useState('');
   const [currentPage, setCurrentPage] = useState<'cashier' | 'inventory' | 'budget' | 'students' | 'grades'>('cashier');
   const [products, setProducts] = useState<Product[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -83,58 +87,48 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Currency state
-  const [currency, setCurrencyState] = useState<CurrencyCode>('KRW');
-
+  // Check saved auth on mount
   useEffect(() => {
-    setCurrency(currency);
-  }, [currency]);
-
-  // Backend authentication check
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [checkingAuth, setCheckingAuth] = useState(true);
-  
-  // Check backend authentication status
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL || '';
-        const response = await fetch(`${apiUrl}/api/ping`, {
-          credentials: 'include', // Include session cookie
-        });
-        
-        if (response.ok) {
-          setIsAuthenticated(true);
-        } else if (response.status === 401) {
-          // Not authenticated, redirect to backend login
-          window.location.href = `${apiUrl}/login`;
-          return;
-        } else {
-          // Other error, try to redirect anyway
-          window.location.href = `${apiUrl}/login`;
-          return;
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        // If backend is not available, redirect to login
-        const apiUrl = import.meta.env.VITE_API_URL || '';
-        window.location.href = `${apiUrl}/login`;
-        return;
-      } finally {
-        setCheckingAuth(false);
+    try {
+      if (localStorage.getItem('schoolstore_auth') === 'ok') {
+        setIsAuthenticated(true);
       }
-    };
-    
-    checkAuth();
+    } catch {}
+    setCheckingAuth(false);
   }, []);
+
+  const handlePasswordSubmit = () => {
+    if (passwordInput === DEFAULT_PASSWORD) {
+      setIsAuthenticated(true);
+      try {
+        localStorage.setItem('schoolstore_auth', 'ok');
+      } catch {}
+      setPasswordInput('');
+    } else {
+      toast.error('Incorrect password');
+    }
+  };
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('schoolstore_auth');
+    } catch {}
+    setIsAuthenticated(false);
+    toast.success('Logged out');
+  };
 
   // Fetch initial data
   useEffect(() => {
-    if (!isAuthenticated) return; // Don't fetch data if not authenticated
-    
     const fetchData = async () => {
       try {
         setLoading(true);
+        // Initialize local database
+        try {
+          await localDb.init();
+        } catch (e) {
+          console.error('Database initialization warning:', e);
+          // Continue anyway - data might already be initialized
+        }
         const [productsData, studentsData, transactionsData, expensesData, teachersData, categoriesData] = await Promise.all([
           productsAPI.getAll(),
           studentsAPI.getAll(),
@@ -157,24 +151,39 @@ export default function App() {
         setTeachers(teachersData as any[]);
         setCategories(categoriesData as any[]);
 
+        const productById = new Map<string, any>(
+          (productsData as any[]).map(p => [p.id, p])
+        );
+
         // Transform transactions
         setTransactions((transactionsData as any[]).map(tx => ({
           ...tx,
           timestamp: new Date(tx.timestamp),
-          items: (tx.items || []).map((item: any) => ({
-            product: {
-              id: item.productId,
-              name: item.productName,
-              price: item.unitPrice,
-              unitCost: item.unitCostAtSale || 0,
-              description: '',
-              category: '',
-              stock: 0,
-              reorderLevel: 0,
-              sku: '',
-            },
-            quantity: item.quantity,
-          })),
+          items: (tx.items || []).map((item: any) => {
+            const catalogProduct = productById.get(item.productId);
+
+            return {
+              product: {
+                id: item.productId,
+                name: item.productName || catalogProduct?.name || item.productId,
+                price: item.unitPrice ?? catalogProduct?.price ?? 0,
+                unitCost:
+                  item.unitCostAtSale ??
+                  catalogProduct?.unitCost ??
+                  catalogProduct?.unit_cost ??
+                  0,
+                description: catalogProduct?.description ?? '',
+                category: catalogProduct?.category ?? '',
+                stock: catalogProduct?.stock ?? 0,
+                reorderLevel:
+                  catalogProduct?.reorderLevel ??
+                  catalogProduct?.reorder_level ??
+                  0,
+                sku: catalogProduct?.sku ?? '',
+              },
+              quantity: item.quantity,
+            };
+          }),
         })));
 
         // Transform expenses
@@ -221,20 +230,24 @@ export default function App() {
         const newTransaction: Transaction = {
           id: result.transaction.id,
           timestamp: new Date(result.transaction.timestamp),
-          items: result.transaction.items.map((item: any) => ({
-            product: {
-              id: item.productId,
-              name: item.productName,
-              price: item.unitPrice,
-              unitCost: item.unitCostAtSale || 0,
-              description: '',
-              category: '',
-              stock: 0,
-              reorderLevel: 0,
-              sku: '',
-            },
-            quantity: item.quantity,
-          })),
+          items: result.transaction.items.map((item: any) => {
+            const catalogProduct = products.find(p => p.id === item.productId);
+
+            return {
+              product: {
+                id: item.productId,
+                name: item.productName || catalogProduct?.name || item.productId,
+                price: item.unitPrice ?? catalogProduct?.price ?? 0,
+                unitCost: item.unitCostAtSale ?? catalogProduct?.unitCost ?? 0,
+                description: catalogProduct?.description ?? '',
+                category: catalogProduct?.category ?? '',
+                stock: catalogProduct?.stock ?? 0,
+                reorderLevel: catalogProduct?.reorderLevel ?? 0,
+                sku: catalogProduct?.sku ?? '',
+              },
+              quantity: item.quantity,
+            };
+          }),
           subtotal: result.transaction.total,
           tax: 0,
           total: result.transaction.total,
@@ -412,22 +425,35 @@ export default function App() {
   };
 
   if (checkingAuth) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking authentication...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   if (!isAuthenticated) {
-    // This should not happen as auth check redirects on failure,
-    // but if it does, redirect to login as a fallback
-    const apiUrl = import.meta.env.VITE_API_URL || '';
-    window.location.href = `${apiUrl}/login`;
-    return null;
+    return (
+      <>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm space-y-4">
+            <h1 className="text-lg font-semibold text-gray-900 text-center">School Store</h1>
+            <p className="text-sm text-gray-600 text-center">Enter password to access</p>
+            <input
+              type="password"
+              className="w-full border rounded px-3 py-2 text-sm"
+              placeholder="Password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+            />
+            <button
+              onClick={handlePasswordSubmit}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded"
+            >
+              Enter
+            </button>
+          </div>
+        </div>
+        <Toaster />
+      </>
+    );
   }
 
   if (loading) {
@@ -446,8 +472,7 @@ export default function App() {
       <TopBar 
         currentPage={currentPage} 
         onNavigate={setCurrentPage}
-        currency={currency}
-        onCurrencyChange={setCurrencyState}
+        onLogout={handleLogout}
       />
       
       {currentPage === 'cashier' && (

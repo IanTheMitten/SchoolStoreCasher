@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { Card } from '../ui/card';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction, Product } from '../../App';
 
 interface RevenueByProductTableProps {
@@ -8,6 +9,7 @@ interface RevenueByProductTableProps {
 }
 
 export function RevenueByProductTable({ transactions }: RevenueByProductTableProps) {
+  const { formatCurrency } = useCurrency();
   const productData = useMemo(() => {
     const map = new Map<string, { product: any; unitsSold: number; revenue: number }>();
     
@@ -62,10 +64,10 @@ export function RevenueByProductTable({ transactions }: RevenueByProductTablePro
                 <tr key={item.product.id} className="hover:bg-gray-50">
                   <td className="p-2">
                     <div className="text-gray-900">{item.product.name}</div>
-                    <div className="text-gray-500 text-xs">Avg: {new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(Math.round(item.avgPrice))}</div>
+                    <div className="text-gray-500 text-xs">Avg: {formatCurrency(item.avgPrice)}</div>
                   </td>
                   <td className="p-2 text-right text-gray-900">{item.unitsSold}</td>
-                  <td className="p-2 text-right text-gray-900">{new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(Math.round(item.revenue))}</td>
+                  <td className="p-2 text-right text-gray-900">{formatCurrency(item.revenue)}</td>
                   <td className="p-2 text-right text-gray-600">{item.percentage.toFixed(1)}%</td>
                 </tr>
               ))}

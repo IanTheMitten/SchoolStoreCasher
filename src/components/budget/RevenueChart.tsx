@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { Card } from '../ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction, Expense } from '../../App';
 
 interface RevenueChartProps {
@@ -10,6 +11,7 @@ interface RevenueChartProps {
 }
 
 export function RevenueChart({ transactions, expenses, dateRange }: RevenueChartProps) {
+  const { formatCurrency } = useCurrency();
   const chartData = useMemo(() => {
     const daysDiff = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
     
@@ -59,10 +61,7 @@ export function RevenueChart({ transactions, expenses, dateRange }: RevenueChart
               borderRadius: '8px',
               fontSize: '12px'
             }}
-            formatter={(value: number) => {
-              try { return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(Math.round(value)); }
-              catch (e) { return `₩${Math.round(value)}`; }
-            }}
+            formatter={(value: number) => formatCurrency(value)}
           />
           <Legend wrapperStyle={{ fontSize: '12px' }} />
           <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} name="Revenue" />

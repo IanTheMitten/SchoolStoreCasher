@@ -21,7 +21,6 @@ import {
 } from './ui/select';
 import { Badge } from './ui/badge';
 import type { Product } from '../App';
-import { formatKRW } from '../utils/formatCurrency';
 
 interface InventoryManagementProps {
   products: Product[];
@@ -139,6 +138,14 @@ export function InventoryManagement({ products, onUpdateProducts }: InventoryMan
       return <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-200">Low Stock</Badge>;
     } else {
       return <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200">In Stock</Badge>;
+    }
+  };
+
+  const formatKRW = (amount: number) => {
+    try {
+      return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(Math.round(amount));
+    } catch (e) {
+      return `₩${Math.round(amount)}`;
     }
   };
 

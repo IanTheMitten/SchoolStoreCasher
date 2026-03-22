@@ -1,110 +1,55 @@
 import { localDb } from './localDb';
 
-// API configuration
-// If VITE_API_URL is not set, use relative URLs (same origin)
-// This works when frontend is served from the same backend
-const API_URL = import.meta.env.VITE_API_URL || '';
-const USE_LOCAL = import.meta.env.VITE_USE_LOCAL === 'true';
-
-// Helper function for API calls
-async function apiCall(endpoint: string, options: RequestInit = {}) {
-  const response = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    credentials: 'include', // Include session cookies
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      // Not authenticated, redirect to login
-      window.location.href = `${API_URL}/login`;
-      throw new Error('Authentication required');
-    }
-    const error = await response.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error(error.error || `HTTP ${response.status}`);
-  }
-
-  return response.json();
-}
+// Standalone local-only mode - all data is stored in IndexedDB on the device
+// No server connectivity required
 
 // Products API
 export const productsAPI = {
   getAll: async () => {
-    if (USE_LOCAL) return localDb.getAllProducts();
-    return apiCall('/api/products');
+    return localDb.getAllProducts();
   },
 
   getById: async (id: string) => {
-    if (USE_LOCAL) return localDb.getProductById(id);
-    return apiCall(`/api/products/${id}`);
+    return localDb.getProductById(id);
   },
 
   create: async (product: any) => {
-    if (USE_LOCAL) return localDb.createProduct(product);
-    return apiCall('/api/products', {
-      method: 'POST',
-      body: JSON.stringify(product),
-    });
+    return localDb.createProduct(product);
   },
 
   update: async (id: string, product: any) => {
-    if (USE_LOCAL) return localDb.updateProduct(id, product);
-    return apiCall(`/api/products/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(product),
-    });
+    return localDb.updateProduct(id, product);
   },
 
   adjustStock: async (id: string, adjustment: { change: number; reason?: string; unit_cost?: number; reference?: string; user?: string }) => {
-    if (USE_LOCAL) return localDb.adjustStock(id, adjustment);
-    return apiCall(`/api/products/${id}/adjust`, {
-      method: 'POST',
-      body: JSON.stringify(adjustment),
-    });
+    return localDb.adjustStock(id, adjustment);
   },
 };
 
 // Students API
 export const studentsAPI = {
   getAll: async () => {
-    if (USE_LOCAL) return localDb.getAllStudents();
-    return apiCall('/api/students');
+    return localDb.getAllStudents();
   },
 
   getById: async (id: string) => {
-    if (USE_LOCAL) return localDb.getStudentById(id);
-    return apiCall(`/api/students/${id}`);
+    return localDb.getStudentById(id);
   },
 
   create: async (student: { name: string; grade?: string; gender?: string }) => {
-    if (USE_LOCAL) return localDb.createStudent(student);
-    return apiCall('/api/students', {
-      method: 'POST',
-      body: JSON.stringify(student),
-    });
+    return localDb.createStudent(student);
   },
 
   update: async (id: string, student: any) => {
-    if (USE_LOCAL) return localDb.updateStudent(id, student);
-    return apiCall(`/api/students/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(student),
-    });
+    return localDb.updateStudent(id, student);
   },
 
   delete: async (id: string) => {
-    if (USE_LOCAL) return localDb.deleteStudent(id);
-    return apiCall(`/api/students/${id}`, {
-      method: 'DELETE',
-    });
+    return localDb.deleteStudent(id);
   },
 
   getPurchases: async (id: string) => {
-    if (USE_LOCAL) return localDb.getPurchasesByStudent(id);
-    return apiCall(`/api/transactions?studentId=${id}`);
+    return localDb.getPurchasesByStudent(id);
   },
 };
 
@@ -114,74 +59,47 @@ export const salesAPI = {
     studentId?: string | null;
     studentName?: string | null;
     items: Array<{ productId: string; quantity: number; unitPrice?: number }>;
-    paymentMethod: 'cash' | 'card' | 'student_balance';
+    paymentMethod: 'cash' | 'card';
     timestamp?: string;
   }) => {
-    if (USE_LOCAL) return localDb.createTransaction(sale);
-    return apiCall('/api/sales', {
-      method: 'POST',
-      body: JSON.stringify(sale),
-    });
+    return localDb.createTransaction(sale);
   },
   
   getAll: async (filters?: { studentId?: string; start?: string; end?: string }) => {
-    if (USE_LOCAL) return localDb.getAllTransactions(filters as any);
-    const params = new URLSearchParams();
-    if (filters?.studentId) params.append('studentId', filters.studentId);
-    if (filters?.start) params.append('start', filters.start);
-    if (filters?.end) params.append('end', filters.end);
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return apiCall(`/api/transactions${query}`);
+    return localDb.getAllTransactions(filters as any);
   },
 };
 
 // Grades API
 export const gradesAPI = {
   getAll: async () => {
-    if (USE_LOCAL) {
-      const students = await localDb.getAllStudents();
-      return Array.from(new Set(students.map(s => s.grade))).filter(Boolean);
-    }
-    return apiCall('/api/grades');
+    const students = await localDb.getAllStudents();
+    const grades = Array.from(new Set(students.map(s => s.grade))).filter(Boolean);
+    return grades;
   },
   
   getStudents: async (grade: string) => {
-    if (USE_LOCAL) {
-      const students = await localDb.getAllStudents();
-      return students.filter(s => s.grade === grade);
-    }
-    return apiCall(`/api/grades/${grade}/students`);
+    const students = await localDb.getAllStudents();
+    return students.filter(s => s.grade === grade);
   },
 };
 
 // Expenses API
 export const expensesAPI = {
   getAll: async (filters?: { start?: string; end?: string }) => {
-    if (USE_LOCAL) return localDb.getAllExpenses(filters as any);
-    const params = new URLSearchParams();
-    if (filters?.start) params.append('start', filters.start);
-    if (filters?.end) params.append('end', filters.end);
-    const query = params.toString() ? `?${params.toString()}` : '';
-    return apiCall(`/api/expenses${query}`);
+    return localDb.getAllExpenses(filters as any);
   },
   
   create: async (expense: { amount: number; category?: string; note?: string; related_product_id?: string; datetime?: string }) => {
-    if (USE_LOCAL) return localDb.createExpense(expense);
-    return apiCall('/api/expenses', {
-      method: 'POST',
-      body: JSON.stringify(expense),
-    });
+    return localDb.createExpense(expense);
   },
   
   delete: async (id: string) => {
-    if (USE_LOCAL) return localDb.deleteExpense(id);
-    return apiCall(`/api/expenses/${id}`, {
-      method: 'DELETE',
-    });
+    return localDb.deleteExpense(id);
   },
 };
 
-// Teachers API (local only for now - add backend routes if needed)
+// Teachers API
 export const teachersAPI = {
   getAll: async () => {
     return localDb.getAllTeachers();
@@ -200,7 +118,7 @@ export const teachersAPI = {
   }
 };
 
-// Categories API (local only for now - add backend routes if needed)
+// Categories API
 export const categoriesAPI = {
   getAll: async () => {
     const cats = await localDb.getAllCategories();
@@ -216,3 +134,4 @@ export const categoriesAPI = {
     return localDb.deleteCategory(id);
   }
 };
+

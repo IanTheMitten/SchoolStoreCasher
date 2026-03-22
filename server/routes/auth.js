@@ -15,7 +15,7 @@ router.get('/login', (req, res) => {
     return res.redirect('/');
   }
 
-  const error = req.query.error ? 'Invalid password' : '';
+  const error = req.query.error ? 'Invalid password' : (req.query.expired ? 'Session expired. Please sign in again.' : '');
 
   res.send(`<!DOCTYPE html>
 <html lang="en">
@@ -120,7 +120,10 @@ router.post('/login', (req, res) => {
     return res.redirect('/login?error=1');
   }
 
+  const now = Date.now();
   req.session.isAuthenticated = true;
+  req.session.createdAt = now;
+  req.session.lastActivity = now;
   return res.redirect('/');
 });
 

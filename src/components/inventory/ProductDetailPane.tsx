@@ -1,8 +1,8 @@
 import { X, Plus, Settings, Clock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Product, StockAdjustment } from '../../App';
-import { formatKRW } from '../../utils/formatCurrency';
 
 interface ProductDetailPaneProps {
   product: Product;
@@ -20,6 +20,8 @@ export function ProductDetailPane({
   onAddStock,
   onAdjust
 }: ProductDetailPaneProps) {
+  const { formatCurrency } = useCurrency();
+
   const getStockStatus = () => {
     const ratio = product.stock / product.reorderLevel;
     
@@ -104,7 +106,7 @@ export function ProductDetailPane({
             <div className="text-gray-600 text-sm mb-2">Supplier</div>
             <div className="text-gray-900 text-sm">{product.supplier}</div>
             <div className="text-gray-500 text-xs mt-1">
-              Last cost: {formatKRW(product.unitCost)}
+              Last cost: {formatCurrency(product.unitCost)}
             </div>
           </div>
         )}

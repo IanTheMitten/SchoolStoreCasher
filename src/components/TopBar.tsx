@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
 import { Settings, LogOut, DollarSign, Package, ShoppingCart, Users, GraduationCap } from 'lucide-react';
 import { Button } from './ui/button';
-import type { CurrencyCode } from '../utils/formatCurrency';
+import { useCurrency } from '../contexts/CurrencyContext';
+import type { CurrencyCode } from '../contexts/CurrencyContext';
 
 interface TopBarProps {
   currentPage: 'cashier' | 'inventory' | 'budget' | 'students' | 'grades';
   onNavigate: (page: 'cashier' | 'inventory' | 'budget' | 'students' | 'grades') => void;
-  currency: CurrencyCode;
-  onCurrencyChange: (currency: CurrencyCode) => void;
+  onLogout?: () => void;
 }
 
-export function TopBar({ currentPage, onNavigate, currency, onCurrencyChange }: TopBarProps) {
+export function TopBar({ currentPage, onNavigate, onLogout }: TopBarProps) {
+  const { currency, setCurrency } = useCurrency();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -77,23 +78,23 @@ export function TopBar({ currentPage, onNavigate, currency, onCurrencyChange }: 
           
           <div className="w-px h-6 bg-gray-300 mx-2" />
 
-          {/* Currency selector */}
           <select
-            className="border rounded px-2 py-1 text-sm text-gray-700 bg-white"
+            className="border rounded px-2 py-1.5 text-sm text-gray-700 bg-white"
             value={currency}
-            onChange={(e) => onCurrencyChange(e.target.value as CurrencyCode)}
+            onChange={(e) => setCurrency(e.target.value as CurrencyCode)}
           >
-            <option value="KRW">KRW ₩</option>
-            <option value="USD">USD $</option>
-            <option value="EUR">EUR €</option>
+            <option value="KRW">₩ KRW</option>
+            <option value="USD">$ USD</option>
+            <option value="EUR">€ EUR</option>
           </select>
           
           <Button variant="ghost" size="sm">
             <Settings className="size-4" />
           </Button>
-          <Button variant="ghost" size="sm">
+          <Button variant="ghost" size="sm" onClick={onLogout} title="Log out">
             <LogOut className="size-4" />
           </Button>
+          {/* Reset DB button removed per request */}
         </div>
       </div>
     </div>

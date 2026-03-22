@@ -3,8 +3,8 @@ import { Plus } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { AddExpenseModal } from './AddExpenseModal';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Expense, Product } from '../../App';
-import { formatKRW } from '../../utils/formatCurrency';
 
 interface ExpensesTableProps {
   expenses: Expense[];
@@ -13,6 +13,7 @@ interface ExpensesTableProps {
 }
 
 export function ExpensesTable({ expenses, products, onAddExpense }: ExpensesTableProps) {
+  const { formatCurrency } = useCurrency();
   const [showModal, setShowModal] = useState(false);
 
   const formatDate = (date: Date) => {
@@ -62,7 +63,7 @@ export function ExpensesTable({ expenses, products, onAddExpense }: ExpensesTabl
                           <div className="text-gray-500 text-xs truncate">{expense.note}</div>
                         )}
                       </td>
-                      <td className="p-2 text-right text-gray-900">{formatKRW(expense.amount)}</td>
+                      <td className="p-2 text-right text-gray-900">{formatCurrency(expense.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -71,7 +72,7 @@ export function ExpensesTable({ expenses, products, onAddExpense }: ExpensesTabl
 
             <div className="pt-4 border-t border-gray-200 flex justify-between items-center">
               <span className="text-gray-600 text-sm">Total Expenses</span>
-              <span className="text-gray-900">{formatKRW(total)}</span>
+              <span className="text-gray-900">{formatCurrency(total)}</span>
             </div>
           </>
         )}

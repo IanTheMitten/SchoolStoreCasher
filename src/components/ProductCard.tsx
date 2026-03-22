@@ -2,7 +2,6 @@ import { Plus, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import type { Product } from '../App';
-import { formatKRW } from '../utils/formatCurrency';
 
 interface ProductCardProps {
   product: Product;
@@ -10,6 +9,10 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onAdd }: ProductCardProps) {
+  const formatKRW = (amount: number) => {
+    try { return new Intl.NumberFormat('ko-KR', { style: 'currency', currency: 'KRW' }).format(Math.round(amount)); }
+    catch (e) { return `₩${Math.round(amount)}`; }
+  };
   const getStockBadge = () => {
     if (product.stock === 0) {
       return (

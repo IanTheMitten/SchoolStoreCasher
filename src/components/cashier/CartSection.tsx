@@ -3,7 +3,8 @@ import { Minus, Plus, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { CashPaymentModal } from './CashPaymentModal';
-import { formatKRW } from '../../utils/formatCurrency';
+import { useCurrency } from '../../contexts/CurrencyContext';
+import { roundMoney } from '../../utils/formatCurrency';
 import type { CartItem, Student, Transaction } from '../../App';
 
 interface CartSectionProps {
@@ -24,10 +25,12 @@ export function CartSection({
   onCompleteTransaction
 }: CartSectionProps) {
   const [paymentMode, setPaymentMode] = useState<'cash' | null>(null);
+  const { formatCurrency } = useCurrency();
 
-  const subtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-  const tax = subtotal * TAX_RATE;
-  const total = subtotal + tax;
+  const rawSubtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+  const subtotal = roundMoney(rawSubtotal);
+  const tax = roundMoney(subtotal * TAX_RATE);
+  const total = roundMoney(subtotal + tax);
 
   const handlePaymentComplete = (transaction: Transaction) => {
     onCompleteTransaction(transaction);
@@ -54,7 +57,7 @@ export function CartSection({
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
                   <div className="text-gray-900 truncate">{item.product.name}</div>
-                  <div className="text-gray-500 text-sm">{formatKRW(item.product.price)} each</div>
+                  <div className="text-gray-500 text-sm">{formatCurrency(item.product.price)} each</div>
                 </div>
                 <Button
                   variant="ghost"
@@ -101,7 +104,7 @@ export function CartSection({
                 </div>
 
                 <div className="text-gray-900">
-                  {formatKRW(item.product.price * item.quantity)}
+                  {formatCurrency(item.product.price * item.quantity)}
                 </div>
               </div>
             </div>
@@ -113,17 +116,17 @@ export function CartSection({
       <div className="bg-white border-t border-gray-200 p-4 space-y-2">
         <div className="flex justify-between text-gray-600">
           <span>Subtotal</span>
-          <span>{formatKRW(subtotal)}</span>
+          <span>{formatCurrency(subtotal)}</span>
         </div>
         {TAX_RATE > 0 && (
           <div className="flex justify-between text-gray-600">
             <span>Tax ({(TAX_RATE * 100).toFixed(0)}%)</span>
-            <span>{formatKRW(tax)}</span>
+            <span>{formatCurrency(tax)}</span>
           </div>
         )}
         <div className="flex justify-between text-gray-900 pt-2 border-t border-gray-200">
           <span>Total</span>
-          <span>{formatKRW(total)}</span>
+          <span>{formatCurrency(total)}</span>
         </div>
       </div>
 

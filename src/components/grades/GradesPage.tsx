@@ -3,6 +3,7 @@ import { ArrowLeft, ChevronRight } from 'lucide-react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction, Student } from '../../App';
 
 interface GradesPageProps {
@@ -19,6 +20,7 @@ type ViewMode = 'grades' | 'students' | 'purchases';
 type ExtendedViewMode = ViewMode | 'teachers';
 
 export function GradesPage({ transactions, students, teachers, onCreateTeacher, onUpdateTeacher, onDeleteTeacher }: GradesPageProps) {
+  const { formatCurrency } = useCurrency();
   const [viewMode, setViewMode] = useState<ExtendedViewMode>('grades');
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -148,7 +150,7 @@ export function GradesPage({ transactions, students, teachers, onCreateTeacher, 
                       <div>
                         <div className="text-gray-600 text-sm">Total Spending</div>
                         <div className="text-gray-900 text-2xl font-semibold">
-                          ₩{gradeSpending.toFixed(2)}
+                          {formatCurrency(gradeSpending)}
                         </div>
                       </div>
                       <div>
@@ -220,7 +222,7 @@ export function GradesPage({ transactions, students, teachers, onCreateTeacher, 
                         </td>
                         <td className="p-4 text-right">
                           <div className="text-gray-900 font-semibold">
-                            ₩{spending.toFixed(2)}
+                            {formatCurrency(spending)}
                           </div>
                         </td>
                         <td className="p-4 text-center">
@@ -324,7 +326,7 @@ export function GradesPage({ transactions, students, teachers, onCreateTeacher, 
                           <Badge variant="outline">{t.subject || '—'}</Badge>
                         </td>
                         <td className="p-4 text-right">
-                          <div className="text-gray-900 font-semibold">₩{spending.toFixed(2)}</div>
+                          <div className="text-gray-900 font-semibold">{formatCurrency(spending)}</div>
                         </td>
                         <td className="p-4 text-center">
                           <div className="flex items-center justify-center gap-2">
@@ -375,7 +377,7 @@ export function GradesPage({ transactions, students, teachers, onCreateTeacher, 
               <div>
                 <h2 className="text-gray-900 text-2xl">{selectedStudent ? selectedStudent.name : selectedTeacher?.name}</h2>
                 <p className="text-gray-600 text-sm">
-                  {selectedStudent ? selectedStudent.grade : (selectedTeacher?.subject || '—')} • Total Spending: ₩{totalSpending.toFixed(2)}
+                  {selectedStudent ? selectedStudent.grade : (selectedTeacher?.subject || '—')} • Total Spending: {formatCurrency(totalSpending)}
                 </p>
               </div>
             </div>
@@ -409,7 +411,7 @@ export function GradesPage({ transactions, students, teachers, onCreateTeacher, 
                                   {item.product.name}
                                 </span>
                                 <span className="text-gray-500 ml-2">
-                                  × {item.quantity} @ ₩{item.product.price.toFixed(2)}
+                                  × {item.quantity} @ {formatCurrency(item.product.price)}
                                 </span>
                               </div>
                             ))}
@@ -417,7 +419,7 @@ export function GradesPage({ transactions, students, teachers, onCreateTeacher, 
                         </td>
                         <td className="p-4 text-right">
                           <div className="text-gray-900 font-semibold">
-                            ₩{tx.total.toFixed(2)}
+                            {formatCurrency(tx.total)}
                           </div>
                         </td>
                       </tr>
