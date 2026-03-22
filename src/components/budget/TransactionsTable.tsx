@@ -9,9 +9,10 @@ import type { Transaction, Student } from '../../App';
 interface TransactionsTableProps {
   transactions: Transaction[];
   students?: Student[];
+  teachers?: any[];
 }
 
-export function TransactionsTable({ transactions, students = [] }: TransactionsTableProps) {
+export function TransactionsTable({ transactions, students = [], teachers = [] }: TransactionsTableProps) {
   const { formatCurrency } = useCurrency();
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedTx, setExpandedTx] = useState<string | null>(null);
@@ -75,7 +76,7 @@ export function TransactionsTable({ transactions, students = [] }: TransactionsT
               <tr>
                 <th className="text-left p-3 text-gray-600">ID</th>
                 <th className="text-left p-3 text-gray-600">Date & Time</th>
-                <th className="text-left p-3 text-gray-600">Student</th>
+                <th className="text-left p-3 text-gray-600">Customer</th>
                 <th className="text-left p-3 text-gray-600">Payment</th>
                 <th className="text-right p-3 text-gray-600">Total</th>
                 <th className="text-center p-3 text-gray-600">Items</th>
@@ -94,13 +95,23 @@ export function TransactionsTable({ transactions, students = [] }: TransactionsT
                       {tx.studentId ? (
                         (() => {
                           const student = students.find(s => s.id === tx.studentId);
-                          return student ? (
+                          if (student) {
+                            return (
+                              <div>
+                                <div className="text-gray-900 text-sm">{student.name}</div>
+                                <div className="text-gray-500 text-xs">{student.grade}</div>
+                              </div>
+                            );
+                          }
+
+                          const teacher = teachers.find(t => t.id === tx.studentId);
+                          return teacher ? (
                             <div>
-                              <div className="text-gray-900 text-sm">{student.name}</div>
-                              <div className="text-gray-500 text-xs">{student.grade}</div>
+                              <div className="text-gray-900 text-sm">{teacher.name}</div>
+                              <div className="text-gray-500 text-xs">Teacher</div>
                             </div>
                           ) : (
-                            <span className="text-gray-500 text-sm">Student ID: {tx.studentId}</span>
+                            <span className="text-gray-500 text-sm">Customer ID: {tx.studentId}</span>
                           );
                         })()
                       ) : (

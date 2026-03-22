@@ -12,12 +12,13 @@ interface BudgetPageProps {
   expenses: Expense[];
   products: Product[];
   students?: Student[];
+  teachers?: any[];
   onAddExpense: (expense: Expense) => void;
 }
 
 export type DateRange = 'today' | 'yesterday' | 'last7days' | 'thisMonth' | 'lastMonth' | 'custom';
 
-export function BudgetPage({ transactions, expenses, products, students = [], onAddExpense }: BudgetPageProps) {
+export function BudgetPage({ transactions, expenses, products, students = [], teachers = [], onAddExpense }: BudgetPageProps) {
   const [dateRange, setDateRange] = useState<DateRange>('today');
   const [customStart, setCustomStart] = useState<Date | null>(null);
   const [customEnd, setCustomEnd] = useState<Date | null>(null);
@@ -110,7 +111,11 @@ export function BudgetPage({ transactions, expenses, products, students = [], on
         </div>
 
         {/* Transactions Table */}
-        <TransactionsTable transactions={filteredTransactions} students={students} />
+        <TransactionsTable
+          transactions={filteredTransactions}
+          students={students}
+          teachers={teachers}
+        />
       </div>
     </div>
   );
