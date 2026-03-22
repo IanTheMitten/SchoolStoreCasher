@@ -479,6 +479,7 @@ export default function App() {
         <CashierPage 
           products={products}
           students={students}
+          teachers={teachers}
           onAddTransaction={handleAddTransaction}
         />
       )}

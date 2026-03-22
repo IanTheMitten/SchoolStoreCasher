@@ -7,12 +7,20 @@ import type { CartItem, Transaction, Student } from '../../App';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { roundMoney } from '../../utils/formatCurrency';
 
+interface CustomerOption {
+  id: string;
+  name: string;
+  type: 'student' | 'teacher';
+  detail?: string;
+}
+
 interface CashPaymentModalProps {
   total: number;
   subtotal: number;
   tax: number;
   cart: CartItem[];
   students?: Student[];
+  teachers?: any[];
   onComplete: (transaction: Transaction) => void;
   onClose: () => void;
 }
@@ -23,15 +31,38 @@ export function CashPaymentModal({
   tax,
   cart,
   students = [],
+  teachers = [],
   onComplete,
   onClose
 }: CashPaymentModalProps) {
   const { formatCurrency } = useCurrency();
   const [cashReceived, setCashReceived] = useState<number>(0);
-  const [showStudentSelector, setShowStudentSelector] = useState(false);
-  const [studentSearch, setStudentSearch] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [showCustomerSelector, setShowCustomerSelector] = useState(false);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null);
   const change = roundMoney((cashReceived || 0) - total);
+  const normalizedSearch = customerSearch.trim().toLowerCase();
+  const customerOptions: CustomerOption[] = [
+    ...(students || []).map((student) => ({
+      id: student.id,
+      name: student.name,
+      type: 'student' as const,
+      detail: student.grade,
+    })),
+    ...(teachers || []).map((teacher) => ({
+      id: teacher.id,
+      name: teacher.name,
+      type: 'teacher' as const,
+      detail: teacher.subject || teacher.email || 'Teacher',
+    })),
+  ];
+  const filteredCustomers = customerOptions.filter(
+    (customer) =>
+      !normalizedSearch ||
+      customer.name.toLowerCase().includes(normalizedSearch) ||
+      customer.id.toLowerCase().includes(normalizedSearch) ||
+      (customer.detail || '').toLowerCase().includes(normalizedSearch)
+  );
 
   const quickAmounts = [
     { label: 'Exact', value: total, accumulate: false },
@@ -56,7 +87,7 @@ export function CashPaymentModal({
 
   const handleComplete = () => {
     const received = cashReceived || 0;
-    if (!selectedStudent) {
+    if (!selectedCustomer) {
       alert('Please associate the sale with a customer before completing the transaction.');
       return;
     }
@@ -76,7 +107,7 @@ export function CashPaymentModal({
       paymentMethod: 'cash',
       cashReceived: receivedRounded,
       change: roundMoney(received - total),
-      studentId: selectedStudent.id
+      studentId: selectedCustomer.id
     };
 
     onComplete(transaction);
@@ -134,26 +165,45 @@ export function CashPaymentModal({
             </div>
           )}
 
-          {/* Associate Student */}
+          {/* Associate Customer */}
           <div>
-            <Button variant="ghost" onClick={() => setShowStudentSelector(v => !v)}>
-              {selectedStudent ? `Associated: ${selectedStudent.name}` : 'Associate with Customer'}
+            <Button variant="ghost" onClick={() => setShowCustomerSelector(v => !v)}>
+              {selectedCustomer
+                ? `Associated: ${selectedCustomer.name} (${selectedCustomer.type})`
+                : 'Associate with Customer'}
             </Button>
-            {showStudentSelector && (
-              <div className="mt-2">
+            {showCustomerSelector && (
+              <div className="mt-2 rounded border bg-white p-2">
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-                  <Input className="pl-9" placeholder="Search student..." value={studentSearch} onChange={(e) => setStudentSearch((e.target as HTMLInputElement).value)} />
+                  <Input
+                    className="pl-9"
+                    placeholder="Search customer..."
+                    value={customerSearch}
+                    onChange={(e) => setCustomerSearch((e.target as HTMLInputElement).value)}
+                  />
                 </div>
-                <div className="max-h-40 overflow-auto border rounded">
-                  {(students || []).filter(s => !studentSearch || s.name.toLowerCase().includes(studentSearch.toLowerCase()) || s.id.toLowerCase().includes(studentSearch.toLowerCase())).map(s => (
-                    <button key={s.id} onClick={() => { setSelectedStudent(s); setShowStudentSelector(false); }} className="w-full text-left p-2 hover:bg-gray-50"> 
+                <div className="max-h-64 overflow-y-auto overscroll-contain border rounded">
+                  {filteredCustomers.map(customer => (
+                    <button
+                      key={`${customer.type}-${customer.id}`}
+                      onClick={() => {
+                        setSelectedCustomer(customer);
+                        setShowCustomerSelector(false);
+                      }}
+                      className="w-full text-left p-2 hover:bg-gray-50"
+                    >
                       <div>
-                        <div className="text-gray-900">{s.name}</div>
-                        <div className="text-gray-500 text-sm">{s.grade}</div>
+                        <div className="text-gray-900">{customer.name}</div>
+                        <div className="text-gray-500 text-sm">
+                          {customer.detail || '—'} • {customer.type}
+                        </div>
                       </div>
                     </button>
                   ))}
+                  {filteredCustomers.length === 0 && (
+                    <div className="p-3 text-sm text-gray-500">No customers found.</div>
+                  )}
                 </div>
               </div>
             )}
@@ -166,7 +216,7 @@ export function CashPaymentModal({
             </Button>
             <Button
               onClick={handleComplete}
-              disabled={!selectedStudent || !cashReceived || change < 0}
+              disabled={!selectedCustomer || !cashReceived || change < 0}
               className="flex-1"
             >
               Complete Sale
