@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import type { DateRange as CalendarDateRange } from 'react-day-picker';
 import { Button } from '../ui/button';
@@ -51,17 +52,31 @@ export function DateRangeSelector({
   onCustomStartChange,
   onCustomEndChange
 }: DateRangeSelectorProps) {
-  const singleDay = customStart !== null && customEnd !== null && isSameDay(customStart, customEnd);
+  const [isSingleDay, setIsSingleDay] = useState(
+    customStart !== null && customEnd !== null && isSameDay(customStart, customEnd)
+  );
+
+  useEffect(() => {
+    if (dateRange !== 'custom') {
+      return;
+    }
+
+    if (customStart && customEnd) {
+      setIsSingleDay(isSameDay(customStart, customEnd));
+    }
+  }, [dateRange]);
 
   const handleSingleDateSelect = (date: Date | undefined) => {
     const nextDate = date ?? null;
     onDateRangeChange('custom');
+    setIsSingleDay(true);
     onCustomStartChange(nextDate);
     onCustomEndChange(nextDate);
   };
 
   const handleRangeSelect = (range: CalendarDateRange | undefined) => {
     onDateRangeChange('custom');
+    setIsSingleDay(false);
 
     if (!range) {
       onCustomStartChange(null);
@@ -75,6 +90,7 @@ export function DateRangeSelector({
 
   const handleSingleDayToggle = (checked: boolean) => {
     onDateRangeChange('custom');
+    setIsSingleDay(checked);
 
     if (!checked) {
       return;
@@ -103,7 +119,7 @@ export function DateRangeSelector({
         }
       : undefined;
 
-  const pickerSummary = singleDay
+  const pickerSummary = isSingleDay
     ? formatDate(customStart)
     : customStart || customEnd
       ? `${formatDate(customStart)} - ${formatDate(customEnd)}`
@@ -129,11 +145,11 @@ export function DateRangeSelector({
         <Card className="p-4 max-w-2xl mx-auto space-y-4">
           <div className="flex items-center justify-between gap-3">
             <Label htmlFor="single-day-toggle">Single day</Label>
-            <Switch id="single-day-toggle" checked={singleDay} onCheckedChange={handleSingleDayToggle} />
+            <Switch id="single-day-toggle" checked={isSingleDay} onCheckedChange={handleSingleDayToggle} />
           </div>
 
           <div className="space-y-2">
-            <Label>{singleDay ? 'Date' : 'Date range'}</Label>
+            <Label>{isSingleDay ? 'Date' : 'Date range'}</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -146,7 +162,7 @@ export function DateRangeSelector({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
-                {singleDay ? (
+                {isSingleDay ? (
                   <Calendar mode="single" selected={customStart ?? undefined} onSelect={handleSingleDateSelect} initialFocus />
                 ) : (
                   <Calendar
