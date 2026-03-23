@@ -14,36 +14,46 @@ export function RevenueChart({ transactions, expenses, dateRange }: RevenueChart
   const { formatCurrency } = useCurrency();
   const chartData = useMemo(() => {
     const daysDiff = Math.ceil((dateRange.end.getTime() - dateRange.start.getTime()) / (1000 * 60 * 60 * 24));
+    const getDayKey = (date: Date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    const getDateLabel = (date: Date) => date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     
     // Group by day
-    const dataMap = new Map<string, { revenue: number; expenses: number }>();
+    const dataMap = new Map<string, { dateLabel: string; revenue: number; expenses: number }>();
     
     // Initialize all days
     for (let i = 0; i <= daysDiff; i++) {
       const date = new Date(dateRange.start.getTime() + i * 24 * 60 * 60 * 1000);
-      const key = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      dataMap.set(key, { revenue: 0, expenses: 0 });
+      const dayKey = getDayKey(date);
+      dataMap.set(dayKey, { dateLabel: getDateLabel(date), revenue: 0, expenses: 0 });
     }
     
     // Add transactions
     transactions.forEach(t => {
-      const key = t.timestamp.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const existing = dataMap.get(key) || { revenue: 0, expenses: 0 };
-      dataMap.set(key, { ...existing, revenue: existing.revenue + t.total });
+      const dayKey = getDayKey(t.timestamp);
+      const existing = dataMap.get(dayKey) || { dateLabel: getDateLabel(t.timestamp), revenue: 0, expenses: 0 };
+      dataMap.set(dayKey, { ...existing, revenue: existing.revenue + t.total });
     });
     
     // Add expenses
     expenses.forEach(e => {
-      const key = e.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      const existing = dataMap.get(key) || { revenue: 0, expenses: 0 };
-      dataMap.set(key, { ...existing, expenses: existing.expenses + e.amount });
+      const dayKey = getDayKey(e.date);
+      const existing = dataMap.get(dayKey) || { dateLabel: getDateLabel(e.date), revenue: 0, expenses: 0 };
+      dataMap.set(dayKey, { ...existing, expenses: existing.expenses + e.amount });
     });
     
-    return Array.from(dataMap.entries()).map(([date, data]) => ({
-      date,
-      revenue: data.revenue,
-      expenses: data.expenses
-    }));
+    return Array.from(dataMap.entries())
+      .map(([dayKey, data]) => ({
+        dayKey,
+        dateLabel: data.dateLabel,
+        revenue: data.revenue,
+        expenses: data.expenses
+      }))
+      .sort((a, b) => a.dayKey.localeCompare(b.dayKey));
   }, [transactions, expenses, dateRange]);
 
   return (
@@ -52,7 +62,7 @@ export function RevenueChart({ transactions, expenses, dateRange }: RevenueChart
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis dataKey="date" stroke="#6b7280" style={{ fontSize: '12px' }} />
+          <XAxis dataKey="dateLabel" stroke="#6b7280" style={{ fontSize: '12px' }} />
           <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
           <Tooltip
             contentStyle={{
