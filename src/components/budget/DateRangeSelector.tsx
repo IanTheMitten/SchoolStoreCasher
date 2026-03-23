@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import type { DateRange as CalendarDateRange } from 'react-day-picker';
 import { Button } from '../ui/button';
@@ -52,31 +52,30 @@ export function DateRangeSelector({
   onCustomStartChange,
   onCustomEndChange
 }: DateRangeSelectorProps) {
-  const [isSingleDay, setIsSingleDay] = useState(
-    customStart !== null && customEnd !== null && isSameDay(customStart, customEnd)
-  );
+  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | null>(null);
 
-  useEffect(() => {
-    if (dateRange !== 'custom') {
-      return;
+  const inferredSingleDay = customStart !== null && customEnd !== null && isSameDay(customStart, customEnd);
+  const isSingleDay = selectionMode === null ? inferredSingleDay : selectionMode === 'single';
+
+  const handleRangeButtonClick = (range: DateRange) => {
+    if (range === 'custom') {
+      setSelectionMode(null);
     }
 
-    if (customStart && customEnd) {
-      setIsSingleDay(isSameDay(customStart, customEnd));
-    }
-  }, [dateRange]);
+    onDateRangeChange(range);
+  };
 
   const handleSingleDateSelect = (date: Date | undefined) => {
     const nextDate = date ?? null;
     onDateRangeChange('custom');
-    setIsSingleDay(true);
+    setSelectionMode('single');
     onCustomStartChange(nextDate);
     onCustomEndChange(nextDate);
   };
 
   const handleRangeSelect = (range: CalendarDateRange | undefined) => {
     onDateRangeChange('custom');
-    setIsSingleDay(false);
+    setSelectionMode('range');
 
     if (!range) {
       onCustomStartChange(null);
@@ -90,7 +89,7 @@ export function DateRangeSelector({
 
   const handleSingleDayToggle = (checked: boolean) => {
     onDateRangeChange('custom');
-    setIsSingleDay(checked);
+    setSelectionMode(checked ? 'single' : 'range');
 
     if (!checked) {
       return;
@@ -133,7 +132,7 @@ export function DateRangeSelector({
           <Button
             key={range.value}
             variant={dateRange === range.value ? 'default' : 'outline'}
-            onClick={() => onDateRangeChange(range.value)}
+            onClick={() => handleRangeButtonClick(range.value)}
             size="sm"
           >
             {range.label}
