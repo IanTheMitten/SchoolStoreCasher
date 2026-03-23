@@ -23,39 +23,46 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
   const [customStart, setCustomStart] = useState<Date | null>(null);
   const [customEnd, setCustomEnd] = useState<Date | null>(null);
 
+  const normalizeRangeToDayBounds = (startDate: Date, endDate: Date = startDate) => {
+    const start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+
+    return { start, end };
+  };
+
   const getDateRangeFilter = () => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
     switch (dateRange) {
       case 'today':
-        return {
-          start: today,
-          end: new Date(today.getTime() + 24 * 60 * 60 * 1000)
-        };
-      case 'yesterday':
+        return normalizeRangeToDayBounds(today);
+      case 'yesterday': {
         const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
-        return { start: yesterday, end: today };
-      case 'last7days':
+        return normalizeRangeToDayBounds(yesterday);
+      }
+      case 'last7days': {
         const week = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return { start: week, end: new Date() };
+        return normalizeRangeToDayBounds(week, today);
+      }
       case 'thisMonth':
-        return {
-          start: new Date(now.getFullYear(), now.getMonth(), 1),
-          end: new Date()
-        };
+        return normalizeRangeToDayBounds(new Date(now.getFullYear(), now.getMonth(), 1), today);
       case 'lastMonth':
-        return {
-          start: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-          end: new Date(now.getFullYear(), now.getMonth(), 1)
-        };
-      case 'custom':
-        return {
-          start: customStart || today,
-          end: customEnd || new Date()
-        };
+        return normalizeRangeToDayBounds(
+          new Date(now.getFullYear(), now.getMonth() - 1, 1),
+          new Date(now.getFullYear(), now.getMonth(), 0)
+        );
+      case 'custom': {
+        const customStartDate = customStart || today;
+        const customEndDate = customEnd || customStartDate;
+
+        return normalizeRangeToDayBounds(customStartDate, customEndDate);
+      }
       default:
-        return { start: today, end: new Date() };
+        return normalizeRangeToDayBounds(today);
     }
   };
 
