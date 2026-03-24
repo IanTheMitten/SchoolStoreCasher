@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import type { DateRange as CalendarDateRange } from 'react-day-picker';
 import { Button } from '../ui/button';
 import { Calendar } from '../ui/calendar';
 import { Card } from '../ui/card';
@@ -29,7 +28,7 @@ const ranges: { value: DateRange; label: string }[] = [
 
 const formatDate = (date: Date | null) => {
   if (!date) {
-    return 'Not set';
+    return 'Select date';
   }
 
   return new Intl.DateTimeFormat('en-US', {
@@ -52,44 +51,54 @@ export function DateRangeSelector({
   onCustomStartChange,
   onCustomEndChange
 }: DateRangeSelectorProps) {
-  const [selectionMode, setSelectionMode] = useState<'single' | 'range' | null>(null);
+  const [singleDayEnabled, setSingleDayEnabled] = useState(false);
+  const [isStartOpen, setIsStartOpen] = useState(false);
+  const [isEndOpen, setIsEndOpen] = useState(false);
+  const previousRange = useRef<DateRange>(dateRange);
 
-  const inferredSingleDay = customStart !== null && customEnd !== null && isSameDay(customStart, customEnd);
-  const isSingleDay = selectionMode === null ? inferredSingleDay : selectionMode === 'single';
-
-  const handleRangeButtonClick = (range: DateRange) => {
-    if (range === 'custom') {
-      setSelectionMode(null);
+  useEffect(() => {
+    if (previousRange.current !== 'custom' && dateRange === 'custom') {
+      const enableSingleDay =
+        customStart !== null && customEnd !== null && isSameDay(customStart, customEnd);
+      setSingleDayEnabled(enableSingleDay);
     }
 
-    onDateRangeChange(range);
-  };
+    previousRange.current = dateRange;
+  }, [dateRange, customStart, customEnd]);
 
-  const handleSingleDateSelect = (date: Date | undefined) => {
-    const nextDate = date ?? null;
+  const handleStartSelect = (date: Date | undefined) => {
+    const nextStart = date ?? null;
     onDateRangeChange('custom');
-    setSelectionMode('single');
-    onCustomStartChange(nextDate);
-    onCustomEndChange(nextDate);
-  };
+    onCustomStartChange(nextStart);
+    setIsStartOpen(false);
 
-  const handleRangeSelect = (range: CalendarDateRange | undefined) => {
-    onDateRangeChange('custom');
-    setSelectionMode('range');
-
-    if (!range) {
-      onCustomStartChange(null);
-      onCustomEndChange(null);
+    if (!nextStart) {
       return;
     }
 
-    onCustomStartChange(range.from ?? null);
-    onCustomEndChange(range.to ?? null);
+    if (singleDayEnabled || !customEnd || customEnd < nextStart) {
+      onCustomEndChange(nextStart);
+    }
+  };
+
+  const handleEndSelect = (date: Date | undefined) => {
+    const nextEnd = date ?? null;
+    onDateRangeChange('custom');
+    onCustomEndChange(nextEnd);
+    setIsEndOpen(false);
+
+    if (!nextEnd || !customStart) {
+      return;
+    }
+
+    if (nextEnd < customStart) {
+      onCustomStartChange(nextEnd);
+    }
   };
 
   const handleSingleDayToggle = (checked: boolean) => {
     onDateRangeChange('custom');
-    setSelectionMode(checked ? 'single' : 'range');
+    setSingleDayEnabled(checked);
 
     if (!checked) {
       return;
@@ -110,20 +119,6 @@ export function DateRangeSelector({
     onCustomEndChange(today);
   };
 
-  const selectedRange: CalendarDateRange | undefined =
-    customStart || customEnd
-      ? {
-          from: customStart ?? customEnd ?? undefined,
-          to: customEnd ?? undefined
-        }
-      : undefined;
-
-  const pickerSummary = isSingleDay
-    ? formatDate(customStart)
-    : customStart || customEnd
-      ? `${formatDate(customStart)} - ${formatDate(customEnd)}`
-      : 'Select date range';
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -132,7 +127,7 @@ export function DateRangeSelector({
           <Button
             key={range.value}
             variant={dateRange === range.value ? 'default' : 'outline'}
-            onClick={() => handleRangeButtonClick(range.value)}
+            onClick={() => onDateRangeChange(range.value)}
             size="sm"
           >
             {range.label}
@@ -144,46 +139,42 @@ export function DateRangeSelector({
         <Card className="p-4 max-w-2xl mx-auto space-y-4">
           <div className="flex items-center justify-between gap-3">
             <Label htmlFor="single-day-toggle">Single day</Label>
-            <Switch id="single-day-toggle" checked={isSingleDay} onCheckedChange={handleSingleDayToggle} />
-          </div>
-
-          <div className="space-y-2">
-            <Label>{isSingleDay ? 'Date' : 'Date range'}</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-between font-normal"
-                  onClick={() => onDateRangeChange('custom')}
-                >
-                  <span className="truncate text-left">{pickerSummary}</span>
-                  <CalendarIcon className="size-4 text-muted-foreground" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                {isSingleDay ? (
-                  <Calendar mode="single" selected={customStart ?? undefined} onSelect={handleSingleDateSelect} initialFocus />
-                ) : (
-                  <Calendar
-                    mode="range"
-                    selected={selectedRange}
-                    onSelect={handleRangeSelect}
-                    numberOfMonths={2}
-                    initialFocus
-                  />
-                )}
-              </PopoverContent>
-            </Popover>
+            <Switch id="single-day-toggle" checked={singleDayEnabled} onCheckedChange={handleSingleDayToggle} />
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label>Start date</Label>
-              <div className="text-sm text-muted-foreground">{formatDate(customStart)}</div>
+              <Popover open={isStartOpen} onOpenChange={setIsStartOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="w-full justify-between font-normal">
+                    <span className="truncate text-left">{formatDate(customStart)}</span>
+                    <CalendarIcon className="size-4 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={customStart ?? undefined} onSelect={handleStartSelect} initialFocus />
+                </PopoverContent>
+              </Popover>
             </div>
-            <div className="space-y-1">
+
+            <div className="space-y-2">
               <Label>End date</Label>
-              <div className="text-sm text-muted-foreground">{formatDate(customEnd)}</div>
+              <Popover open={isEndOpen} onOpenChange={setIsEndOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-between font-normal"
+                    disabled={singleDayEnabled}
+                  >
+                    <span className="truncate text-left">{formatDate(customEnd)}</span>
+                    <CalendarIcon className="size-4 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={customEnd ?? undefined} onSelect={handleEndSelect} initialFocus />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </Card>
