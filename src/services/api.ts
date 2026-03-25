@@ -24,6 +24,14 @@ export const productsAPI = {
   adjustStock: async (id: string, adjustment: { change: number; reason?: string; unit_cost?: number; reference?: string; user?: string }) => {
     return localDb.adjustStock(id, adjustment);
   },
+
+  getAdjustmentsByProduct: async (id: string, filters?: { start?: string; end?: string }) => {
+    return localDb.getProductAdjustments(id, filters);
+  },
+
+  getAdjustments: async (filters?: { productIds?: string[]; start?: string; end?: string }) => {
+    return localDb.getInventoryAdjustments(filters);
+  },
 };
 
 // Students API

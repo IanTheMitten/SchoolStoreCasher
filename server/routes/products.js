@@ -4,6 +4,32 @@ import { validateProduct, validateStockAdjustment } from '../lib/validators.js';
 
 const router = express.Router();
 
+const normalizeAdjustment = (adjustment) => ({
+  id: adjustment.id,
+  productId: adjustment.productId || adjustment.product_id,
+  date: adjustment.date,
+  quantity: adjustment.quantity,
+  reason: adjustment.reason,
+  reference: adjustment.reference || '',
+  unitCost: adjustment.unitCost ?? adjustment.unit_cost,
+  user: adjustment.user || adjustment.user_name || 'system'
+});
+
+const buildAdjustmentFilter = (query = {}) => {
+  const start = query.start ? new Date(query.start) : null;
+  const end = query.end ? new Date(query.end) : null;
+
+  return (adj) => {
+    const productId = adj.productId || adj.product_id;
+    if (!productId) return false;
+
+    const date = new Date(adj.date);
+    if (start && date < start) return false;
+    if (end && date > end) return false;
+    return true;
+  };
+};
+
 // GET /api/products
 router.get('/', async (req, res) => {
   try {
@@ -11,6 +37,68 @@ router.get('/', async (req, res) => {
     res.json(products);
   } catch (error) {
     console.error('Error fetching products:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/products/adjustments?productIds=P1,P2&start=...&end=...
+router.get('/adjustments', async (req, res) => {
+  try {
+    const productIds = String(req.query.productIds || '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+
+    const includeAllProducts = productIds.length === 0;
+    const filterByDate = buildAdjustmentFilter(req.query);
+
+    const adjustments = await readDB((db) => {
+      const rows = db.inventoryAdjustments || [];
+      return rows
+        .filter((adj) => {
+          const productId = adj.productId || adj.product_id;
+          if (!includeAllProducts && !productIds.includes(productId)) {
+            return false;
+          }
+          return filterByDate(adj);
+        })
+        .map(normalizeAdjustment)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+    });
+
+    res.json(adjustments);
+  } catch (error) {
+    console.error('Error fetching product adjustments:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// GET /api/products/:id/adjustments?start=...&end=...
+router.get('/:id/adjustments', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const filterByDate = buildAdjustmentFilter(req.query);
+
+    const adjustments = await readDB((db) => {
+      const product = db.products.find((p) => p.id === id);
+      if (!product) {
+        return null;
+      }
+
+      return (db.inventoryAdjustments || [])
+        .filter((adj) => (adj.productId || adj.product_id) === id)
+        .filter((adj) => filterByDate(adj))
+        .map(normalizeAdjustment)
+        .sort((a, b) => new Date(a.date) - new Date(b.date));
+    });
+
+    if (!adjustments) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    res.json(adjustments);
+  } catch (error) {
+    console.error('Error fetching product adjustments:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -185,4 +273,3 @@ router.post('/:id/adjust', async (req, res) => {
 });
 
 export default router;
-
