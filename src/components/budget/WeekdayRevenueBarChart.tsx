@@ -3,11 +3,11 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction } from '../../App';
-import { getSampledTransactionDates, getWeekdayRevenueByDate } from './analyticsSampling';
+import { getWeekdayRevenueByDate } from './analyticsSampling';
 
 interface WeekdayRevenueBarChartProps {
   transactions: Transaction[];
-  chosenMonthDate: Date;
+  sampledDaysCount: number;
 }
 
 const WEEKDAY_LABELS = [
@@ -18,17 +18,8 @@ const WEEKDAY_LABELS = [
   { dayIndex: 5, label: 'Fri' },
 ];
 
-function getDayKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-export function WeekdayRevenueBarChart({ transactions, chosenMonthDate }: WeekdayRevenueBarChartProps) {
+export function WeekdayRevenueBarChart({ transactions, sampledDaysCount }: WeekdayRevenueBarChartProps) {
   const { formatCurrency } = useCurrency();
-
-  const sampled = useMemo(() => getSampledTransactionDates(transactions, chosenMonthDate), [transactions, chosenMonthDate]);
 
   const chartData = useMemo(() => {
     const revenueByDate = getWeekdayRevenueByDate(transactions);
@@ -40,16 +31,11 @@ export function WeekdayRevenueBarChart({ transactions, chosenMonthDate }: Weekda
       avgRevenue: 0,
     }));
 
-    sampled.combined.forEach((sampleDate) => {
-      const dayOfWeek = sampleDate.getDay();
+    revenueByDate.forEach((dayRevenue, dayKey) => {
+      const [year, month, day] = dayKey.split('-').map(Number);
+      const dayOfWeek = new Date(year, month - 1, day).getDay();
       const targetBucket = weekdayBuckets[dayOfWeek - 1];
-
-      if (!targetBucket) {
-        return;
-      }
-
-      const dayRevenue = revenueByDate.get(getDayKey(sampleDate)) ?? 0;
-      if (dayRevenue <= 0) {
+      if (!targetBucket || dayRevenue <= 0) {
         return;
       }
 
@@ -61,9 +47,7 @@ export function WeekdayRevenueBarChart({ transactions, chosenMonthDate }: Weekda
       ...bucket,
       avgRevenue: bucket.dayCount > 0 ? bucket.totalRevenue / bucket.dayCount : 0,
     }));
-  }, [sampled, transactions]);
-
-  const sampledDaysCount = sampled.combined.length;
+  }, [transactions]);
 
   return (
     <Card className="p-6">
