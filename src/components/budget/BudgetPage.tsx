@@ -124,7 +124,6 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
           dateRange={range}
         />
 
-
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Revenue By Product */}
           <RevenueByProductTable
