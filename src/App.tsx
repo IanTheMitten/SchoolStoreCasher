@@ -529,6 +529,7 @@ export default function App() {
       {currentPage === 'statistic' && (
         <StatisticPage
           transactions={transactions}
+          products={products}
         />
       )}
       

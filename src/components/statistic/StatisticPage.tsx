@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
-import type { Transaction } from '../../App';
+import type { Product, Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { WeekdayRevenueBarChart } from '../budget/WeekdayRevenueBarChart';
 import { TimePeriodRevenueBarChart } from './TimePeriodRevenueBarChart';
 import { TimePeriodCumulativeLine } from './TimePeriodCumulativeLine';
+import { ProductAverageRevenueTable } from './ProductAverageRevenueTable';
 import { CANONICAL_TIME_PERIODS } from './timePeriodAnalytics';
 
 interface StatisticPageProps {
   transactions: Transaction[];
+  products: Product[];
 }
 
 function formatMonthInputValue(date: Date): string {
@@ -21,7 +23,7 @@ function parseMonthInputValue(value: string): Date {
   return new Date(year, month - 1, 1);
 }
 
-export function StatisticPage({ transactions }: StatisticPageProps) {
+export function StatisticPage({ transactions, products }: StatisticPageProps) {
   const [chosenMonth, setChosenMonth] = useState(() => formatMonthInputValue(new Date()));
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(CANONICAL_TIME_PERIODS[0].id);
 
@@ -64,6 +66,12 @@ export function StatisticPage({ transactions }: StatisticPageProps) {
           transactions={transactions}
           chosenMonthDate={chosenMonthDate}
           selectedPeriodId={selectedPeriodId}
+        />
+
+        <ProductAverageRevenueTable
+          transactions={transactions}
+          products={products}
+          chosenMonthDate={chosenMonthDate}
         />
       </div>
     </div>
