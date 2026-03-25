@@ -22,6 +22,7 @@ const ranges: { value: DateRange; label: string }[] = [
   { value: 'last7days', label: 'Last 7 Days' },
   { value: 'thisMonth', label: 'This Month' },
   { value: 'lastMonth', label: 'Last Month' },
+  { value: 'allTime', label: 'All Time' },
   { value: 'custom', label: 'Custom' }
 ];
 
