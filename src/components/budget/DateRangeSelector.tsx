@@ -1,4 +1,4 @@
-import { Calendar as CalendarIcon, Dices } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Calendar } from '../ui/calendar';
 import { Card } from '../ui/card';
@@ -14,10 +14,6 @@ interface DateRangeSelectorProps {
   customEnd: Date | null;
   onCustomStartChange: (date: Date | null) => void;
   onCustomEndChange: (date: Date | null) => void;
-  chosenMonth: Date | null;
-  onChosenMonthChange: (date: Date | null) => void;
-  randomSeed: string;
-  onRandomSeedChange: (value: string) => void;
 }
 
 const ranges: { value: DateRange; label: string }[] = [
@@ -25,12 +21,9 @@ const ranges: { value: DateRange; label: string }[] = [
   { value: 'yesterday', label: 'Yesterday' },
   { value: 'last7days', label: 'Last 7 Days' },
   { value: 'thisMonth', label: 'This Month' },
-  { value: 'chosenMonth', label: 'Chosen Month' },
   { value: 'lastMonth', label: 'Last Month' },
-  { value: 'sample4Weeks', label: 'Sample 4 Weeks' },
-  { value: 'sample30Days', label: 'Sample 30 Days' },
   { value: 'allTime', label: 'All Time' },
-  { value: 'custom', label: 'Custom' },
+  { value: 'custom', label: 'Custom' }
 ];
 
 const formatDate = (date: Date | null) => {
@@ -41,7 +34,7 @@ const formatDate = (date: Date | null) => {
   return new Intl.DateTimeFormat('en-US', {
     month: 'short',
     day: 'numeric',
-    year: 'numeric',
+    year: 'numeric'
   }).format(date);
 };
 
@@ -70,29 +63,6 @@ const parseDateInputValue = (value: string): Date | null => {
   return new Date(year, month - 1, day);
 };
 
-const toMonthInputValue = (date: Date | null): string => {
-  if (!date) {
-    return '';
-  }
-
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  return `${year}-${month}`;
-};
-
-const parseMonthInputValue = (value: string): Date | null => {
-  if (!value) {
-    return null;
-  }
-
-  const [year, month] = value.split('-').map(Number);
-  if (!year || !month) {
-    return null;
-  }
-
-  return new Date(year, month - 1, 1);
-};
-
 const isSameDay = (first: Date, second: Date) =>
   first.getFullYear() === second.getFullYear() &&
   first.getMonth() === second.getMonth() &&
@@ -104,14 +74,9 @@ export function DateRangeSelector({
   customStart,
   customEnd,
   onCustomStartChange,
-  onCustomEndChange,
-  chosenMonth,
-  onChosenMonthChange,
-  randomSeed,
-  onRandomSeedChange,
+  onCustomEndChange
 }: DateRangeSelectorProps) {
   const singleDay = customStart !== null && customEnd !== null && isSameDay(customStart, customEnd);
-  const isRandomSampleMode = dateRange === 'sample4Weeks' || dateRange === 'sample30Days';
 
   const handleCustomStartSelect = (date: Date | undefined) => {
     const nextStart = date ?? null;
@@ -163,7 +128,7 @@ export function DateRangeSelector({
     <div className="space-y-4">
       <div className="flex items-center justify-center gap-2 flex-wrap">
         <CalendarIcon className="size-5 text-gray-400" />
-        {ranges.map((range) => (
+        {ranges.map(range => (
           <Button
             key={range.value}
             variant={dateRange === range.value ? 'default' : 'outline'}
@@ -174,38 +139,6 @@ export function DateRangeSelector({
           </Button>
         ))}
       </div>
-
-      {dateRange === 'chosenMonth' && (
-        <Card className="p-4 max-w-2xl mx-auto space-y-2">
-          <Label htmlFor="chosen-month-input">Chosen month</Label>
-          <input
-            id="chosen-month-input"
-            type="month"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            value={toMonthInputValue(chosenMonth)}
-            onChange={(event) => {
-              onChosenMonthChange(parseMonthInputValue(event.target.value));
-              onDateRangeChange('chosenMonth');
-            }}
-          />
-        </Card>
-      )}
-
-      {isRandomSampleMode && (
-        <Card className="p-4 max-w-2xl mx-auto space-y-2">
-          <div className="flex items-center gap-2 text-sm text-gray-700">
-            <Dices className="size-4" />
-            Deterministic sample seed (optional)
-          </div>
-          <input
-            type="text"
-            className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-            value={randomSeed}
-            onChange={(event) => onRandomSeedChange(event.target.value)}
-            placeholder="Leave blank to use session seed"
-          />
-        </Card>
-      )}
 
       {dateRange === 'custom' && (
         <Card className="p-4 max-w-2xl mx-auto space-y-4">
