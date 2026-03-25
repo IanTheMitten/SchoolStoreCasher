@@ -6,12 +6,13 @@ import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
 import { RevenueByProductTable } from './RevenueByProductTable';
 import { ExpensesTable } from './ExpensesTable';
 import { TransactionsTable } from './TransactionsTable';
-import type { Transaction, Expense, Product, Student } from '../../App';
+import type { Transaction, Expense, Product, Student, StockAdjustment } from '../../App';
 
 interface BudgetPageProps {
   transactions: Transaction[];
   expenses: Expense[];
   products: Product[];
+  stockHistory: StockAdjustment[];
   students?: Student[];
   teachers?: any[];
   onAddExpense: (expense: Expense) => void;
@@ -19,7 +20,7 @@ interface BudgetPageProps {
 
 export type DateRange = 'today' | 'yesterday' | 'last7days' | 'thisMonth' | 'lastMonth' | 'allTime' | 'custom';
 
-export function BudgetPage({ transactions, expenses, products, students = [], teachers = [], onAddExpense }: BudgetPageProps) {
+export function BudgetPage({ transactions, expenses, products, stockHistory, students = [], teachers = [], onAddExpense }: BudgetPageProps) {
   const [dateRange, setDateRange] = useState<DateRange>('today');
   const [customStart, setCustomStart] = useState<Date | null>(null);
   const [customEnd, setCustomEnd] = useState<Date | null>(null);
@@ -134,7 +135,9 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
           {/* Revenue By Product */}
           <RevenueByProductTable
             transactions={filteredTransactions}
+            allTransactions={transactions}
             products={products}
+            stockAdjustments={stockHistory}
           />
 
           {/* Expenses */}

@@ -2,13 +2,14 @@ import { mockProducts, mockStudents, mockTeachers } from '../data/mockData';
 import type { Product, Student } from '../App';
 
 const DB_NAME = 'schoolstore-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const STORE_PRODUCTS = 'products';
 const STORE_STUDENTS = 'students';
 const STORE_TEACHERS = 'teachers';
 const STORE_TRANSACTIONS = 'transactions';
 const STORE_EXPENSES = 'expenses';
 const STORE_CATEGORIES = 'categories';
+const STORE_STOCK_ADJUSTMENTS = 'stock_adjustments';
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -33,6 +34,9 @@ function openDB(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(STORE_EXPENSES)) {
         db.createObjectStore(STORE_EXPENSES, { keyPath: 'id' });
+      }
+      if (!db.objectStoreNames.contains(STORE_STOCK_ADJUSTMENTS)) {
+        db.createObjectStore(STORE_STOCK_ADJUSTMENTS, { keyPath: 'id' });
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -226,15 +230,39 @@ export const localDb = {
   },
   adjustStock: async (id: string, adjustment: { change: number; reason?: string; unit_cost?: number; reference?: string; user?: string }) => {
     const db = await openDB();
-    const tx = db.transaction(STORE_PRODUCTS, 'readwrite');
+    const tx = db.transaction([STORE_PRODUCTS, STORE_STOCK_ADJUSTMENTS], 'readwrite');
     const store = tx.objectStore(STORE_PRODUCTS);
+    const stockAdjustmentsStore = tx.objectStore(STORE_STOCK_ADJUSTMENTS);
     const existing = await reqToPromise(store.get(id)) as any;
     if (!existing) throw new Error('Product not found');
     const newStock = (existing.stock || 0) + (adjustment.change || 0);
     existing.stock = newStock;
     if (adjustment.unit_cost !== undefined) existing.unit_cost = adjustment.unit_cost;
     store.put(existing);
-    return new Promise(resolve => { tx.oncomplete = () => resolve({ stock: existing.stock, unit_cost: existing.unit_cost }); });
+    const adjustmentRecord = {
+      id: `adj-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      productId: id,
+      date: new Date().toISOString(),
+      quantity: adjustment.change || 0,
+      reason: adjustment.reason || 'correction',
+      reference: adjustment.reference,
+      unitCost: adjustment.unit_cost,
+      user: adjustment.user || 'system',
+    };
+    stockAdjustmentsStore.put(adjustmentRecord);
+    return new Promise(resolve => {
+      tx.oncomplete = () => resolve({
+        stock: existing.stock,
+        unit_cost: existing.unit_cost,
+        adjustment: adjustmentRecord,
+      });
+    });
+  },
+  getAllStockAdjustments: async () => {
+    const db = await openDB();
+    const tx = db.transaction(STORE_STOCK_ADJUSTMENTS, 'readonly');
+    const store = tx.objectStore(STORE_STOCK_ADJUSTMENTS);
+    return reqToPromise(store.getAll()) as Promise<any[]>;
   },
 
   // Students

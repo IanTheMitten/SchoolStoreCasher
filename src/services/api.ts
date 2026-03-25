@@ -24,6 +24,10 @@ export const productsAPI = {
   adjustStock: async (id: string, adjustment: { change: number; reason?: string; unit_cost?: number; reference?: string; user?: string }) => {
     return localDb.adjustStock(id, adjustment);
   },
+
+  getStockAdjustments: async () => {
+    return localDb.getAllStockAdjustments();
+  },
 };
 
 // Students API
@@ -134,4 +138,3 @@ export const categoriesAPI = {
     return localDb.deleteCategory(id);
   }
 };
-

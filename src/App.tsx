@@ -130,13 +130,14 @@ export default function App() {
           console.error('Database initialization warning:', e);
           // Continue anyway - data might already be initialized
         }
-        const [productsData, studentsData, transactionsData, expensesData, teachersData, categoriesData] = await Promise.all([
+        const [productsData, studentsData, transactionsData, expensesData, teachersData, categoriesData, stockAdjustmentsData] = await Promise.all([
           productsAPI.getAll(),
           studentsAPI.getAll(),
           salesAPI.getAll(),
           expensesAPI.getAll(),
           teachersAPI.getAll(),
           categoriesAPI.getAll(),
+          productsAPI.getStockAdjustments(),
         ]);
 
         // Transform API data to match frontend types
@@ -192,6 +193,11 @@ export default function App() {
           ...exp,
           date: new Date(exp.datetime),
           productId: exp.related_product_id,
+        })));
+
+        setStockHistory((stockAdjustmentsData as any[]).map((adj) => ({
+          ...adj,
+          date: new Date(adj.date),
         })));
 
       } catch (error) {
@@ -314,7 +320,13 @@ export default function App() {
       }) as any;
 
       // Update local state
-      setStockHistory((prev: StockAdjustment[]) => [...prev, adjustment]);
+      const persistedAdjustment = result.adjustment
+        ? {
+            ...result.adjustment,
+            date: new Date(result.adjustment.date),
+          }
+        : adjustment;
+      setStockHistory((prev: StockAdjustment[]) => [...prev, persistedAdjustment]);
       
       const updatedProducts = products.map((product: Product) => {
         if (product.id === adjustment.productId) {
@@ -502,6 +514,7 @@ export default function App() {
           transactions={transactions}
           expenses={expenses}
           products={products}
+          stockHistory={stockHistory}
           students={students}
           teachers={teachers}
           onAddExpense={handleAddExpense}
