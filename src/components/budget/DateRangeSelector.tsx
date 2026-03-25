@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '../ui/button';
-import { Calendar } from '../ui/calendar';
 import { Card } from '../ui/card';
 import { Label } from '../ui/label';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Switch } from '../ui/switch';
 import type { DateRange } from './BudgetPage';
 
@@ -26,22 +24,31 @@ const ranges: { value: DateRange; label: string }[] = [
   { value: 'custom', label: 'Custom' }
 ];
 
-const formatDate = (date: Date | null) => {
-  if (!date) {
-    return 'Select date';
-  }
-
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric'
-  }).format(date);
-};
-
 const isSameDay = (first: Date, second: Date) =>
   first.getFullYear() === second.getFullYear() &&
   first.getMonth() === second.getMonth() &&
   first.getDate() === second.getDate();
+
+const toDateInputValue = (date: Date | null) => {
+  if (!date) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const fromDateInputValue = (value: string) => {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+};
 
 export function DateRangeSelector({
   dateRange,
@@ -52,8 +59,6 @@ export function DateRangeSelector({
   onCustomEndChange
 }: DateRangeSelectorProps) {
   const [singleDayEnabled, setSingleDayEnabled] = useState(false);
-  const [isStartOpen, setIsStartOpen] = useState(false);
-  const [isEndOpen, setIsEndOpen] = useState(false);
   const previousRange = useRef<DateRange>(dateRange);
 
   useEffect(() => {
@@ -66,11 +71,10 @@ export function DateRangeSelector({
     previousRange.current = dateRange;
   }, [dateRange, customStart, customEnd]);
 
-  const handleStartSelect = (date: Date | undefined) => {
-    const nextStart = date ?? null;
+  const handleStartInputChange = (value: string) => {
+    const nextStart = fromDateInputValue(value);
     onDateRangeChange('custom');
     onCustomStartChange(nextStart);
-    setIsStartOpen(false);
 
     if (!nextStart) {
       return;
@@ -81,11 +85,10 @@ export function DateRangeSelector({
     }
   };
 
-  const handleEndSelect = (date: Date | undefined) => {
-    const nextEnd = date ?? null;
+  const handleEndInputChange = (value: string) => {
+    const nextEnd = fromDateInputValue(value);
     onDateRangeChange('custom');
     onCustomEndChange(nextEnd);
-    setIsEndOpen(false);
 
     if (!nextEnd || !customStart) {
       return;
@@ -144,37 +147,26 @@ export function DateRangeSelector({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Start date</Label>
-              <Popover open={isStartOpen} onOpenChange={setIsStartOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-between font-normal">
-                    <span className="truncate text-left">{formatDate(customStart)}</span>
-                    <CalendarIcon className="size-4 text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={customStart ?? undefined} onSelect={handleStartSelect} initialFocus />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="custom-start-date">Start date</Label>
+              <input
+                id="custom-start-date"
+                type="date"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                value={toDateInputValue(customStart)}
+                onChange={event => handleStartInputChange(event.target.value)}
+              />
             </div>
 
             <div className="space-y-2">
-              <Label>End date</Label>
-              <Popover open={isEndOpen} onOpenChange={setIsEndOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-between font-normal"
-                    disabled={singleDayEnabled}
-                  >
-                    <span className="truncate text-left">{formatDate(customEnd)}</span>
-                    <CalendarIcon className="size-4 text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={customEnd ?? undefined} onSelect={handleEndSelect} initialFocus />
-                </PopoverContent>
-              </Popover>
+              <Label htmlFor="custom-end-date">End date</Label>
+              <input
+                id="custom-end-date"
+                type="date"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                value={toDateInputValue(customEnd)}
+                onChange={event => handleEndInputChange(event.target.value)}
+                disabled={singleDayEnabled}
+              />
             </div>
           </div>
         </Card>
