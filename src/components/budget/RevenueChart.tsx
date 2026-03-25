@@ -46,7 +46,7 @@ export function RevenueChart({ transactions, expenses, dateRange }: RevenueChart
       dataMap.set(dayKey, { ...existing, expenses: existing.expenses + e.amount });
     });
     
-    return Array.from(dataMap.entries())
+    const dailyData = Array.from(dataMap.entries())
       .map(([dayKey, data]) => ({
         dayKey,
         dateLabel: data.dateLabel,
@@ -54,6 +54,29 @@ export function RevenueChart({ transactions, expenses, dateRange }: RevenueChart
         expenses: data.expenses
       }))
       .sort((a, b) => a.dayKey.localeCompare(b.dayKey));
+
+    let runningProfit = 0;
+    const cumulativeData = dailyData.map(day => {
+      runningProfit += day.revenue - day.expenses;
+      return {
+        ...day,
+        netProfit: runningProfit
+      };
+    });
+
+    const baselineDate = new Date(dateRange.start);
+    baselineDate.setDate(baselineDate.getDate() - 1);
+
+    return [
+      {
+        dayKey: getDayKey(baselineDate),
+        dateLabel: 'Start',
+        revenue: 0,
+        expenses: 0,
+        netProfit: 0
+      },
+      ...cumulativeData
+    ];
   }, [transactions, expenses, dateRange]);
 
   return (
@@ -76,6 +99,7 @@ export function RevenueChart({ transactions, expenses, dateRange }: RevenueChart
           <Legend wrapperStyle={{ fontSize: '12px' }} />
           <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} name="Revenue" />
           <Line type="monotone" dataKey="expenses" stroke="#f97316" strokeWidth={2} name="Expenses" />
+          <Line type="monotone" dataKey="netProfit" stroke="#16a34a" strokeWidth={2} name="Net Profit (Cumulative)" />
         </LineChart>
       </ResponsiveContainer>
     </Card>
