@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { DateRangeSelector } from './DateRangeSelector';
 import { KPICards } from './KPICards';
 import { RevenueChart } from './RevenueChart';
+import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
 import { RevenueByProductTable } from './RevenueByProductTable';
 import { ExpensesTable } from './ExpensesTable';
 import { TransactionsTable } from './TransactionsTable';
@@ -122,6 +123,11 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
           transactions={filteredTransactions}
           expenses={filteredExpenses}
           dateRange={range}
+        />
+
+        <WeekdayRevenueBarChart
+          transactions={transactions}
+          chosenMonthDate={range.end}
         />
 
         <div className="grid lg:grid-cols-2 gap-6">
