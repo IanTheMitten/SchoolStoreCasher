@@ -38,6 +38,31 @@ const formatDate = (date: Date | null) => {
   }).format(date);
 };
 
+const toDateInputValue = (date: Date | null) => {
+  if (!date) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateInputValue = (value: string): Date | null => {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day);
+};
+
 const isSameDay = (first: Date, second: Date) =>
   first.getFullYear() === second.getFullYear() &&
   first.getMonth() === second.getMonth() &&
@@ -125,6 +150,12 @@ export function DateRangeSelector({
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Start date</Label>
+              <input
+                type="date"
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={toDateInputValue(customStart)}
+                onChange={(event) => handleCustomStartSelect(parseDateInputValue(event.target.value) ?? undefined)}
+              />
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-between font-normal">
@@ -140,6 +171,13 @@ export function DateRangeSelector({
 
             <div className="space-y-2">
               <Label>End date</Label>
+              <input
+                type="date"
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={toDateInputValue(customEnd)}
+                onChange={(event) => handleCustomEndSelect(parseDateInputValue(event.target.value) ?? undefined)}
+                disabled={singleDay}
+              />
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full justify-between font-normal" disabled={singleDay}>
