@@ -7,6 +7,7 @@ import { InventoryPage } from './components/inventory/InventoryPage';
 import { BudgetPage } from './components/budget/BudgetPage';
 import { StudentManagement } from './components/StudentManagement';
 import { GradesPage } from './components/grades/GradesPage';
+import { StatisticPage } from './components/statistic/StatisticPage';
 import { productsAPI, studentsAPI, salesAPI, expensesAPI, teachersAPI, categoriesAPI } from './services/api';
 import { localDb } from './services/localDb';
 
@@ -77,7 +78,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
-  const [currentPage, setCurrentPage] = useState<'cashier' | 'inventory' | 'budget' | 'students' | 'grades'>('cashier');
+  const [currentPage, setCurrentPage] = useState<'cashier' | 'inventory' | 'budget' | 'students' | 'grades' | 'statistic'>('cashier');
   const [products, setProducts] = useState<Product[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -522,6 +523,12 @@ export default function App() {
           onCreateTeacher={handleCreateTeacher}
           onUpdateTeacher={handleUpdateTeacher}
           onDeleteTeacher={handleDeleteTeacher}
+        />
+      )}
+
+      {currentPage === 'statistic' && (
+        <StatisticPage
+          transactions={transactions}
         />
       )}
       
