@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react';
 import type { Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { WeekdayRevenueBarChart } from '../budget/WeekdayRevenueBarChart';
+import { TimePeriodRevenueBarChart } from './TimePeriodRevenueBarChart';
+import { TimePeriodCumulativeLine } from './TimePeriodCumulativeLine';
+import { CANONICAL_TIME_PERIODS } from './timePeriodAnalytics';
 
 interface StatisticPageProps {
   transactions: Transaction[];
@@ -20,6 +23,7 @@ function parseMonthInputValue(value: string): Date {
 
 export function StatisticPage({ transactions }: StatisticPageProps) {
   const [chosenMonth, setChosenMonth] = useState(() => formatMonthInputValue(new Date()));
+  const [selectedPeriodId, setSelectedPeriodId] = useState<string>(CANONICAL_TIME_PERIODS[0].id);
 
   const chosenMonthDate = useMemo(() => parseMonthInputValue(chosenMonth), [chosenMonth]);
 
@@ -47,6 +51,19 @@ export function StatisticPage({ transactions }: StatisticPageProps) {
         <WeekdayRevenueBarChart
           transactions={transactions}
           chosenMonthDate={chosenMonthDate}
+        />
+
+        <TimePeriodRevenueBarChart
+          transactions={transactions}
+          chosenMonthDate={chosenMonthDate}
+          selectedPeriodId={selectedPeriodId}
+          onSelectPeriod={setSelectedPeriodId}
+        />
+
+        <TimePeriodCumulativeLine
+          transactions={transactions}
+          chosenMonthDate={chosenMonthDate}
+          selectedPeriodId={selectedPeriodId}
         />
       </div>
     </div>
