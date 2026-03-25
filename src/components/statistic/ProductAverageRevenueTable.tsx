@@ -3,12 +3,12 @@ import type { Product, Transaction } from '../../App';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { productsAPI } from '../../services/api';
 import { Card } from '../ui/card';
-import { getSampledTransactionDates } from '../budget/analyticsSampling';
+import { getSampledTransactionDates, type StatisticSamplingOptions } from './analyticsSampling';
 
 interface ProductAverageRevenueTableProps {
   transactions: Transaction[];
   products: Product[];
-  chosenMonthDate: Date;
+  samplingOptions: StatisticSamplingOptions;
 }
 
 interface InventoryAdjustment {
@@ -126,7 +126,7 @@ function getEligibleDaysForProduct({
   }, 0);
 }
 
-export function ProductAverageRevenueTable({ transactions, products, chosenMonthDate }: ProductAverageRevenueTableProps) {
+export function ProductAverageRevenueTable({ transactions, products, samplingOptions }: ProductAverageRevenueTableProps) {
   const { formatCurrency } = useCurrency();
   const [showAll, setShowAll] = useState(false);
   const [adjustments, setAdjustments] = useState<InventoryAdjustment[]>([]);
@@ -164,10 +164,10 @@ export function ProductAverageRevenueTable({ transactions, products, chosenMonth
   }, [products]);
 
   const sampledDayKeys = useMemo(() => {
-    const sampledDates = getSampledTransactionDates(transactions, chosenMonthDate).combined;
+    const sampledDates = getSampledTransactionDates(transactions, samplingOptions).selected;
     const uniqueDayKeys = new Set(sampledDates.map(toDayKey));
     return Array.from(uniqueDayKeys).sort();
-  }, [transactions, chosenMonthDate]);
+  }, [transactions, samplingOptions]);
 
   const sampledDaySet = useMemo(() => new Set(sampledDayKeys), [sampledDayKeys]);
 

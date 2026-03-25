@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import type { Product, Transaction } from '../../App';
 import { Card } from '../ui/card';
-import { WeekdayRevenueBarChart } from '../budget/WeekdayRevenueBarChart';
 import { TimePeriodRevenueBarChart } from './TimePeriodRevenueBarChart';
 import { TimePeriodCumulativeLine } from './TimePeriodCumulativeLine';
 import { ProductAverageRevenueTable } from './ProductAverageRevenueTable';
 import { CANONICAL_TIME_PERIODS } from './timePeriodAnalytics';
+import { DateRangeSelector } from './DateRangeSelector';
+import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
+import type { StatisticDateRange, StatisticSamplingOptions } from './analyticsSampling';
 
 interface StatisticPageProps {
   transactions: Transaction[];
@@ -24,54 +26,57 @@ function parseMonthInputValue(value: string): Date {
 }
 
 export function StatisticPage({ transactions, products }: StatisticPageProps) {
+  const [dateRange, setDateRange] = useState<StatisticDateRange>('thisMonth');
   const [chosenMonth, setChosenMonth] = useState(() => formatMonthInputValue(new Date()));
+  const [samplingSeed, setSamplingSeed] = useState('');
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(CANONICAL_TIME_PERIODS[0].id);
 
   const chosenMonthDate = useMemo(() => parseMonthInputValue(chosenMonth), [chosenMonth]);
 
+  const samplingOptions = useMemo<StatisticSamplingOptions>(() => ({
+    dateRange,
+    chosenMonthDate,
+    seed: samplingSeed || undefined,
+  }), [dateRange, chosenMonthDate, samplingSeed]);
+
   return (
     <div className="h-[calc(100vh-70px)] overflow-auto">
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-        <Card className="p-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <Card className="p-6 flex flex-col gap-3">
           <div>
             <h2 className="text-gray-900">Statistic</h2>
-            <p className="text-sm text-gray-600 mt-1">Weekday average revenue analytics sampled from transaction days.</p>
+            <p className="text-sm text-gray-600 mt-1">Weekday average revenue analytics sampled from eligible transaction days.</p>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="statistic-month" className="text-sm text-gray-600">Chosen month</label>
-            <input
-              id="statistic-month"
-              type="month"
-              value={chosenMonth}
-              onChange={(event) => setChosenMonth(event.target.value)}
-              className="h-10 rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900"
-            />
-          </div>
+          <DateRangeSelector
+            dateRange={dateRange}
+            onDateRangeChange={setDateRange}
+            chosenMonth={chosenMonth}
+            onChosenMonthChange={setChosenMonth}
+            seed={samplingSeed}
+            onSeedChange={setSamplingSeed}
+          />
         </Card>
 
-        <WeekdayRevenueBarChart
-          transactions={transactions}
-          chosenMonthDate={chosenMonthDate}
-        />
+        <WeekdayRevenueBarChart transactions={transactions} samplingOptions={samplingOptions} />
 
         <TimePeriodRevenueBarChart
           transactions={transactions}
-          chosenMonthDate={chosenMonthDate}
+          samplingOptions={samplingOptions}
           selectedPeriodId={selectedPeriodId}
           onSelectPeriod={setSelectedPeriodId}
         />
 
         <TimePeriodCumulativeLine
           transactions={transactions}
-          chosenMonthDate={chosenMonthDate}
+          samplingOptions={samplingOptions}
           selectedPeriodId={selectedPeriodId}
         />
 
         <ProductAverageRevenueTable
           transactions={transactions}
           products={products}
-          chosenMonthDate={chosenMonthDate}
+          samplingOptions={samplingOptions}
         />
       </div>
     </div>
