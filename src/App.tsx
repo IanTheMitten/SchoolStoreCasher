@@ -78,7 +78,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
-  const [currentPage, setCurrentPage] = useState<'cashier' | 'inventory' | 'budget' | 'statistics' | 'students' | 'grades'>('cashier');
+  const [currentPage, setCurrentPage] = useState<'cashier' | 'inventory' | 'budget' | 'statistic' | 'students' | 'grades'>('cashier');
   const [products, setProducts] = useState<Product[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -509,7 +509,7 @@ export default function App() {
       )}
 
 
-      {currentPage === 'statistics' && (
+      {currentPage === 'statistic' && (
         <StatisticPage
           transactions={transactions}
         />

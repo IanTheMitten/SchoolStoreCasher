@@ -5,6 +5,7 @@ import { RevenueChart } from './RevenueChart';
 import { RevenueByProductTable } from './RevenueByProductTable';
 import { ExpensesTable } from './ExpensesTable';
 import { TransactionsTable } from './TransactionsTable';
+import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
 import type { Transaction, Expense, Product, Student } from '../../App';
 
 interface BudgetPageProps {
@@ -124,6 +125,11 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
           dateRange={range}
         />
 
+
+        <WeekdayRevenueBarChart
+          transactions={transactions}
+          chosenMonthDate={range.end}
+        />
 
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Revenue By Product */}
