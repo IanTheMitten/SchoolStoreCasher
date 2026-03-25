@@ -71,6 +71,17 @@ router.post('/', async (req, res) => {
         
         // Update product stock
         product.stock -= item.quantity;
+
+        // Record inventory movement for historical stock analytics
+        db.inventoryAdjustments.push({
+          id: `ADJ-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          productId: product.id,
+          date: transactionTimestamp,
+          quantity: -item.quantity,
+          reason: 'sale',
+          reference: transactionId,
+          user: 'system'
+        });
         
         // Create transaction item
         const transactionItem = {
