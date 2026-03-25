@@ -5,6 +5,7 @@ import { TopBar } from './components/TopBar';
 import { CashierPage } from './components/cashier/CashierPage';
 import { InventoryPage } from './components/inventory/InventoryPage';
 import { BudgetPage } from './components/budget/BudgetPage';
+import { StatisticPage } from './components/budget/StatisticPage';
 import { StudentManagement } from './components/StudentManagement';
 import { GradesPage } from './components/grades/GradesPage';
 import { productsAPI, studentsAPI, salesAPI, expensesAPI, teachersAPI, categoriesAPI } from './services/api';
@@ -77,7 +78,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
-  const [currentPage, setCurrentPage] = useState<'cashier' | 'inventory' | 'budget' | 'students' | 'grades'>('cashier');
+  const [currentPage, setCurrentPage] = useState<'cashier' | 'inventory' | 'budget' | 'statistics' | 'students' | 'grades'>('cashier');
   const [products, setProducts] = useState<Product[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [teachers, setTeachers] = useState<any[]>([]);
@@ -504,6 +505,13 @@ export default function App() {
           students={students}
           teachers={teachers}
           onAddExpense={handleAddExpense}
+        />
+      )}
+
+
+      {currentPage === 'statistics' && (
+        <StatisticPage
+          transactions={transactions}
         />
       )}
 

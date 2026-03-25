@@ -1,27 +1,19 @@
 import { useState } from 'react';
+import type { Transaction } from '../../App';
 import { DateRangeSelector } from './DateRangeSelector';
-import { KPICards } from './KPICards';
-import { RevenueChart } from './RevenueChart';
-import { RevenueByProductTable } from './RevenueByProductTable';
-import { ExpensesTable } from './ExpensesTable';
-import { TransactionsTable } from './TransactionsTable';
-import type { Transaction, Expense, Product, Student } from '../../App';
+import type { DateRange } from './BudgetPage';
+import { CANONICAL_PERIODS, TimePeriodRevenueBarChart, type CanonicalPeriodId } from './TimePeriodRevenueBarChart';
+import { TimePeriodCumulativeLine } from './TimePeriodCumulativeLine';
 
-interface BudgetPageProps {
+interface StatisticPageProps {
   transactions: Transaction[];
-  expenses: Expense[];
-  products: Product[];
-  students?: Student[];
-  teachers?: any[];
-  onAddExpense: (expense: Expense) => void;
 }
 
-export type DateRange = 'today' | 'yesterday' | 'last7days' | 'thisMonth' | 'lastMonth' | 'allTime' | 'custom';
-
-export function BudgetPage({ transactions, expenses, products, students = [], teachers = [], onAddExpense }: BudgetPageProps) {
+export function StatisticPage({ transactions }: StatisticPageProps) {
   const [dateRange, setDateRange] = useState<DateRange>('today');
   const [customStart, setCustomStart] = useState<Date | null>(null);
   const [customEnd, setCustomEnd] = useState<Date | null>(null);
+  const [selectedPeriod, setSelectedPeriod] = useState<CanonicalPeriodId | null>(CANONICAL_PERIODS[0]?.id ?? null);
 
   const normalizeRangeToDayBounds = (startDate: Date, endDate: Date = startDate) => {
     const start = new Date(startDate);
@@ -56,23 +48,8 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
           new Date(now.getFullYear(), now.getMonth(), 0)
         );
       case 'allTime': {
-        const oldestTransaction = transactions.reduce<Date | null>((oldest, transaction) => {
-          if (!oldest || transaction.timestamp < oldest) {
-            return transaction.timestamp;
-          }
-          return oldest;
-        }, null);
-
-        const oldestExpense = expenses.reduce<Date | null>((oldest, expense) => {
-          if (!oldest || expense.date < oldest) {
-            return expense.date;
-          }
-          return oldest;
-        }, null);
-
-        const candidates = [oldestTransaction, oldestExpense].filter((date): date is Date => Boolean(date));
-        const oldestRecordDate = candidates.length > 0
-          ? new Date(Math.min(...candidates.map(date => date.getTime())))
+        const oldestRecordDate = transactions.length > 0
+          ? new Date(Math.min(...transactions.map(transaction => transaction.timestamp.getTime())))
           : today;
 
         return normalizeRangeToDayBounds(oldestRecordDate, today);
@@ -91,17 +68,12 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
   const range = getDateRangeFilter();
 
   const filteredTransactions = transactions.filter(
-    t => t.timestamp >= range.start && t.timestamp <= range.end
-  );
-
-  const filteredExpenses = expenses.filter(
-    e => e.date >= range.start && e.date <= range.end
+    transaction => transaction.timestamp >= range.start && transaction.timestamp <= range.end
   );
 
   return (
     <div className="h-[calc(100vh-70px)] overflow-auto">
       <div className="p-6 max-w-[1600px] mx-auto space-y-6">
-        {/* Date Range Selector */}
         <DateRangeSelector
           dateRange={dateRange}
           onDateRangeChange={setDateRange}
@@ -111,41 +83,17 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
           onCustomEndChange={setCustomEnd}
         />
 
-        {/* KPI Cards */}
-        <KPICards
-          transactions={filteredTransactions}
-          expenses={filteredExpenses}
-        />
-
-        {/* Revenue vs Expense Chart */}
-        <RevenueChart
-          transactions={filteredTransactions}
-          expenses={filteredExpenses}
-          dateRange={range}
-        />
-
-
         <div className="grid lg:grid-cols-2 gap-6">
-          {/* Revenue By Product */}
-          <RevenueByProductTable
+          <TimePeriodRevenueBarChart
             transactions={filteredTransactions}
-            products={products}
+            selectedPeriod={selectedPeriod}
+            onSelectPeriod={setSelectedPeriod}
           />
-
-          {/* Expenses */}
-          <ExpensesTable
-            expenses={filteredExpenses}
-            products={products}
-            onAddExpense={onAddExpense}
+          <TimePeriodCumulativeLine
+            transactions={filteredTransactions}
+            selectedPeriod={selectedPeriod}
           />
         </div>
-
-        {/* Transactions Table */}
-        <TransactionsTable
-          transactions={filteredTransactions}
-          students={students}
-          teachers={teachers}
-        />
       </div>
     </div>
   );

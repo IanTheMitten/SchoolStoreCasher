@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Settings, LogOut, DollarSign, Package, ShoppingCart, Users, GraduationCap } from 'lucide-react';
+import { Settings, LogOut, DollarSign, Package, ShoppingCart, Users, GraduationCap, BarChart3 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useCurrency } from '../contexts/CurrencyContext';
 import type { CurrencyCode } from '../contexts/CurrencyContext';
 
 interface TopBarProps {
-  currentPage: 'cashier' | 'inventory' | 'budget' | 'students' | 'grades';
-  onNavigate: (page: 'cashier' | 'inventory' | 'budget' | 'students' | 'grades') => void;
+  currentPage: 'cashier' | 'inventory' | 'budget' | 'statistics' | 'students' | 'grades';
+  onNavigate: (page: 'cashier' | 'inventory' | 'budget' | 'statistics' | 'students' | 'grades') => void;
   onLogout?: () => void;
 }
 
@@ -43,6 +43,7 @@ export function TopBar({ currentPage, onNavigate, onLogout }: TopBarProps) {
     { id: 'cashier' as const, label: 'Cashier', icon: ShoppingCart },
     { id: 'inventory' as const, label: 'Inventory', icon: Package },
     { id: 'budget' as const, label: 'Budget', icon: DollarSign },
+    { id: 'statistics' as const, label: 'Statistic', icon: BarChart3 },
     { id: 'students' as const, label: 'Students', icon: Users },
     { id: 'grades' as const, label: 'Customers', icon: GraduationCap }
   ];
