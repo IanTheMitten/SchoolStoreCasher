@@ -16,7 +16,7 @@ interface BudgetPageProps {
   onAddExpense: (expense: Expense) => void;
 }
 
-export type DateRange = 'today' | 'yesterday' | 'last7days' | 'thisMonth' | 'lastMonth' | 'custom';
+export type DateRange = 'today' | 'yesterday' | 'last7days' | 'thisMonth' | 'lastMonth' | 'allTime' | 'custom';
 
 export function BudgetPage({ transactions, expenses, products, students = [], teachers = [], onAddExpense }: BudgetPageProps) {
   const [dateRange, setDateRange] = useState<DateRange>('today');
@@ -55,6 +55,28 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
           new Date(now.getFullYear(), now.getMonth() - 1, 1),
           new Date(now.getFullYear(), now.getMonth(), 0)
         );
+      case 'allTime': {
+        const oldestTransaction = transactions.reduce<Date | null>((oldest, transaction) => {
+          if (!oldest || transaction.timestamp < oldest) {
+            return transaction.timestamp;
+          }
+          return oldest;
+        }, null);
+
+        const oldestExpense = expenses.reduce<Date | null>((oldest, expense) => {
+          if (!oldest || expense.date < oldest) {
+            return expense.date;
+          }
+          return oldest;
+        }, null);
+
+        const candidates = [oldestTransaction, oldestExpense].filter((date): date is Date => Boolean(date));
+        const oldestRecordDate = candidates.length > 0
+          ? new Date(Math.min(...candidates.map(date => date.getTime())))
+          : today;
+
+        return normalizeRangeToDayBounds(oldestRecordDate, today);
+      }
       case 'custom': {
         const customStartDate = customStart || today;
         const customEndDate = customEnd || customStartDate;
