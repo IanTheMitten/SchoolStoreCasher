@@ -1,5 +1,5 @@
 import type { Transaction } from '../../App';
-import { getSampledTransactionDates } from '../budget/analyticsSampling';
+import { getDayKey, getSampledTransactionDates, type StatisticSamplingOptions } from './analyticsSampling';
 
 export interface TimePeriodDefinition {
   id: string;
@@ -33,13 +33,6 @@ export interface PeriodCumulativePoint {
   transactionTotal: number;
 }
 
-function toDayKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function getLocalMinutesSinceMidnight(timestamp: Date): number {
   return timestamp.getHours() * 60 + timestamp.getMinutes();
 }
@@ -61,15 +54,15 @@ function formatCumulativePointLabel(timestamp: Date, index: number): string {
 
 export function getTimePeriodRevenueData(
   transactions: Transaction[],
-  chosenMonthDate: Date,
+  samplingOptions: StatisticSamplingOptions,
 ): { sampledDayCount: number; data: TimePeriodRevenueDatum[] } {
-  const sampled = getSampledTransactionDates(transactions, chosenMonthDate);
-  const sampledDaySet = new Set(sampled.combined.map((date) => toDayKey(date)));
+  const sampled = getSampledTransactionDates(transactions, samplingOptions);
+  const sampledDaySet = new Set(sampled.selected.map((date) => getDayKey(date)));
 
   const totalsByPeriod = new Map<string, number>(CANONICAL_TIME_PERIODS.map((period) => [period.id, 0]));
 
   transactions.forEach((transaction) => {
-    if (!sampledDaySet.has(toDayKey(transaction.timestamp))) {
+    if (!sampledDaySet.has(getDayKey(transaction.timestamp))) {
       return;
     }
 
@@ -81,7 +74,7 @@ export function getTimePeriodRevenueData(
     totalsByPeriod.set(periodId, (totalsByPeriod.get(periodId) ?? 0) + transaction.total);
   });
 
-  const sampledDayCount = sampled.combined.length;
+  const sampledDayCount = sampled.selected.length;
 
   return {
     sampledDayCount,
@@ -99,14 +92,14 @@ export function getTimePeriodRevenueData(
 
 export function getSelectedPeriodCumulativeSeries(
   transactions: Transaction[],
-  chosenMonthDate: Date,
+  samplingOptions: StatisticSamplingOptions,
   selectedPeriodId: string,
 ): { sampledDayCount: number; points: PeriodCumulativePoint[] } {
-  const sampled = getSampledTransactionDates(transactions, chosenMonthDate);
-  const sampledDaySet = new Set(sampled.combined.map((date) => toDayKey(date)));
+  const sampled = getSampledTransactionDates(transactions, samplingOptions);
+  const sampledDaySet = new Set(sampled.selected.map((date) => getDayKey(date)));
 
   const selectedTransactions = transactions
-    .filter((transaction) => sampledDaySet.has(toDayKey(transaction.timestamp)))
+    .filter((transaction) => sampledDaySet.has(getDayKey(transaction.timestamp)))
     .filter((transaction) => getPeriodIdForTimestamp(transaction.timestamp) === selectedPeriodId)
     .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
@@ -115,7 +108,7 @@ export function getSelectedPeriodCumulativeSeries(
     {
       pointLabel: '0. Start',
       cumulativeRevenue: 0,
-      timestamp: selectedTransactions[0]?.timestamp ?? new Date(chosenMonthDate),
+      timestamp: selectedTransactions[0]?.timestamp ?? new Date(),
       transactionTotal: 0,
     },
   ];
@@ -131,7 +124,7 @@ export function getSelectedPeriodCumulativeSeries(
   });
 
   return {
-    sampledDayCount: sampled.combined.length,
+    sampledDayCount: sampled.selected.length,
     points,
   };
 }

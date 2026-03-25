@@ -4,19 +4,20 @@ import type { Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { CANONICAL_TIME_PERIODS, getSelectedPeriodCumulativeSeries } from './timePeriodAnalytics';
+import type { StatisticSamplingOptions } from './analyticsSampling';
 
 interface TimePeriodCumulativeLineProps {
   transactions: Transaction[];
-  chosenMonthDate: Date;
+  samplingOptions: StatisticSamplingOptions;
   selectedPeriodId: string;
 }
 
-export function TimePeriodCumulativeLine({ transactions, chosenMonthDate, selectedPeriodId }: TimePeriodCumulativeLineProps) {
+export function TimePeriodCumulativeLine({ transactions, samplingOptions, selectedPeriodId }: TimePeriodCumulativeLineProps) {
   const { formatCurrency } = useCurrency();
 
   const { points, sampledDayCount } = useMemo(
-    () => getSelectedPeriodCumulativeSeries(transactions, chosenMonthDate, selectedPeriodId),
-    [transactions, chosenMonthDate, selectedPeriodId],
+    () => getSelectedPeriodCumulativeSeries(transactions, samplingOptions, selectedPeriodId),
+    [transactions, samplingOptions, selectedPeriodId],
   );
 
   const selectedPeriodLabel =

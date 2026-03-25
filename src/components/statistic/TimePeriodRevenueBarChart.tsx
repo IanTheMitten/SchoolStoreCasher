@@ -4,25 +4,26 @@ import type { Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { getTimePeriodRevenueData } from './timePeriodAnalytics';
+import type { StatisticSamplingOptions } from './analyticsSampling';
 
 interface TimePeriodRevenueBarChartProps {
   transactions: Transaction[];
-  chosenMonthDate: Date;
+  samplingOptions: StatisticSamplingOptions;
   selectedPeriodId: string | null;
   onSelectPeriod: (periodId: string) => void;
 }
 
 export function TimePeriodRevenueBarChart({
   transactions,
-  chosenMonthDate,
+  samplingOptions,
   selectedPeriodId,
   onSelectPeriod,
 }: TimePeriodRevenueBarChartProps) {
   const { formatCurrency } = useCurrency();
 
   const { data, sampledDayCount } = useMemo(
-    () => getTimePeriodRevenueData(transactions, chosenMonthDate),
-    [transactions, chosenMonthDate],
+    () => getTimePeriodRevenueData(transactions, samplingOptions),
+    [transactions, samplingOptions],
   );
 
   return (
