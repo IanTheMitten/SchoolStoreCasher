@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { TopBar } from './components/TopBar';
@@ -73,6 +73,16 @@ export interface Expense {
 }
 
 const DEFAULT_PASSWORD = import.meta.env.VITE_APP_PASSWORD || 'schoolstore';
+const DEFAULT_TIMEOUT_MINUTES = 10;
+const LUNCH_TIMEOUT_MINUTES = 40;
+
+const getInactivityTimeoutMs = (date: Date = new Date()) => {
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  const isLunchWindow = hour === 12 && minute < 40;
+  const timeoutMinutes = isLunchWindow ? LUNCH_TIMEOUT_MINUTES : DEFAULT_TIMEOUT_MINUTES;
+  return timeoutMinutes * 60 * 1000;
+};
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -87,6 +97,7 @@ export default function App() {
   const [stockHistory, setStockHistory] = useState<StockAdjustment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
+  const lastActivityAtRef = useRef(Date.now());
 
   // Check saved auth on mount
   useEffect(() => {
@@ -101,6 +112,7 @@ export default function App() {
   const handlePasswordSubmit = () => {
     if (passwordInput === DEFAULT_PASSWORD) {
       setIsAuthenticated(true);
+      lastActivityAtRef.current = Date.now();
       try {
         localStorage.setItem('schoolstore_auth', 'ok');
       } catch {}
@@ -110,13 +122,53 @@ export default function App() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = useCallback((reason: 'manual' | 'timeout' = 'manual') => {
     try {
       localStorage.removeItem('schoolstore_auth');
     } catch {}
     setIsAuthenticated(false);
-    toast.success('Logged out');
-  };
+    setPasswordInput('');
+    toast.success(reason === 'timeout' ? 'Session timed out. Please enter password again.' : 'Logged out');
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const markActivity = () => {
+      lastActivityAtRef.current = Date.now();
+    };
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      'click',
+      'keydown',
+      'mousemove',
+      'scroll',
+      'touchstart',
+    ];
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, markActivity, { passive: true });
+    });
+
+    const intervalId = window.setInterval(() => {
+      const now = Date.now();
+      const elapsed = now - lastActivityAtRef.current;
+      const timeoutMs = getInactivityTimeoutMs(new Date(now));
+
+      if (elapsed >= timeoutMs) {
+        handleLogout('timeout');
+      }
+    }, 15 * 1000);
+
+    return () => {
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, markActivity);
+      });
+      window.clearInterval(intervalId);
+    };
+  }, [isAuthenticated, handleLogout]);
 
   // Fetch initial data
   useEffect(() => {
