@@ -1,4 +1,3 @@
-import { mockProducts, mockStudents, mockTeachers } from '../data/mockData';
 import type { Product, Student } from '../App';
 
 const DB_NAME = 'schoolstore-db';
@@ -29,91 +28,8 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-async function seedIfEmpty() {
-  try {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('localDb.skipSeed') === '1') {
-      return;
-    }
-  } catch {}
-
-  const db = await openDB();
-  const tx = db.transaction([STORE_PRODUCTS, STORE_STUDENTS, STORE_TEACHERS, STORE_CATEGORIES], 'readonly');
-  const prodStore = tx.objectStore(STORE_PRODUCTS);
-  const stuStore = tx.objectStore(STORE_STUDENTS);
-  const teachStore = tx.objectStore(STORE_TEACHERS);
-  const catStore = tx.objectStore(STORE_CATEGORIES);
-
-  const prodCountReq = prodStore.count();
-  const stuCountReq = stuStore.count();
-  const teachCountReq = teachStore.count();
-  const catCountReq = catStore.count();
-
-  await new Promise<void>((resolve, reject) => {
-    prodCountReq.onsuccess = () => {
-      const pCount = prodCountReq.result;
-      stuCountReq.onsuccess = () => {
-        const sCount = stuCountReq.result;
-        teachCountReq.onsuccess = () => {
-          const tCount = teachCountReq.result;
-          catCountReq.onsuccess = () => {
-            const cCount = catCountReq.result;
-            const pendingWrites: Promise<void>[] = [];
-
-            if (pCount === 0) {
-              pendingWrites.push(new Promise((res, rej) => {
-                const wtx = db.transaction([STORE_PRODUCTS], 'readwrite');
-                const pstore = wtx.objectStore(STORE_PRODUCTS);
-                for (const p of mockProducts) pstore.put(p as any);
-                wtx.oncomplete = () => res();
-                wtx.onerror = () => rej(wtx.error);
-              }));
-            }
-
-            if (sCount === 0) {
-              pendingWrites.push(new Promise((res, rej) => {
-                const wtx = db.transaction([STORE_STUDENTS], 'readwrite');
-                const sstore = wtx.objectStore(STORE_STUDENTS);
-                for (const s of mockStudents) sstore.put(s as any);
-                wtx.oncomplete = () => res();
-                wtx.onerror = () => rej(wtx.error);
-              }));
-            }
-
-            if (tCount === 0) {
-              pendingWrites.push(new Promise((res, rej) => {
-                const wtx = db.transaction([STORE_TEACHERS], 'readwrite');
-                const tstore = wtx.objectStore(STORE_TEACHERS);
-                for (const t of mockTeachers) tstore.put(t as any);
-                wtx.oncomplete = () => res();
-                wtx.onerror = () => rej(wtx.error);
-              }));
-            }
-
-            if (cCount === 0) {
-              pendingWrites.push(new Promise((res, rej) => {
-                const wtx = db.transaction([STORE_CATEGORIES], 'readwrite');
-                const cstore = wtx.objectStore(STORE_CATEGORIES);
-                const cats = Array.from(new Set((mockProducts || []).map(p => (p as any).category).filter(Boolean)));
-                for (const cat of cats) {
-                  const id = `cat-${String(cat).toLowerCase().replace(/\s+/g, '-')}`;
-                  cstore.put({ id, name: cat });
-                }
-                wtx.oncomplete = () => res();
-                wtx.onerror = () => rej(wtx.error);
-              }));
-            }
-
-            if (pendingWrites.length === 0) resolve();
-            else Promise.all(pendingWrites).then(() => resolve()).catch(err => reject(err));
-          };
-          catCountReq.onerror = () => reject(catCountReq.error);
-        };
-        teachCountReq.onerror = () => reject(teachCountReq.error);
-      };
-      stuCountReq.onerror = () => reject(stuCountReq.error);
-    };
-    prodCountReq.onerror = () => reject(prodCountReq.error);
-  });
+async function ensureDbReady() {
+  await openDB();
 }
 
 function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
@@ -163,18 +79,11 @@ const normalizeInventoryAdjustment = (adjustment: any) => ({
 
 export const localDb = {
   init: async () => {
-    await seedIfEmpty();
+    await ensureDbReady();
   },
 
-  clearAll: async (skipSeed = false) => {
+  clearAll: async () => {
     return new Promise<void>((resolve, reject) => {
-      try {
-        if (typeof localStorage !== 'undefined') {
-          if (skipSeed) localStorage.setItem('localDb.skipSeed', '1');
-          else localStorage.removeItem('localDb.skipSeed');
-        }
-      } catch {}
-
       const req = indexedDB.deleteDatabase(DB_NAME);
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
@@ -182,11 +91,6 @@ export const localDb = {
     });
   },
 
-  allowSeed: async () => {
-    try {
-      if (typeof localStorage !== 'undefined') localStorage.removeItem('localDb.skipSeed');
-    } catch {}
-  },
 
   getAllProducts: async (): Promise<Product[]> => {
     const db = await openDB();
