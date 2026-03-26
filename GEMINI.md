@@ -1,13 +1,12 @@
 # Project Overview
 
-This is a standalone local cashier and inventory management app for Android tablets. It is a single-page application (SPA) built with React, Vite, and TypeScript. All data is stored locally in the browser's IndexedDB, and there is no backend server. The application is designed to be wrapped in an Android app using Capacitor.
+This is a standalone local cashier and inventory management web app. It is a single-page application (SPA) built with React, Vite, and TypeScript. All data is stored locally in the browser's IndexedDB, and there is no backend server.
 
 ## Key Technologies
 
 *   **Frontend:** React, Vite, TypeScript
 *   **Styling:** Tailwind CSS, radix-ui
 *   **Data Storage:** IndexedDB
-*   **Mobile:** Capacitor for Android
 
 ## Architecture
 
@@ -20,7 +19,6 @@ The application is architected as a local-only, single-page application.
         *   **`localDb.ts`**: Provides a wrapper around IndexedDB for creating, reading, updating, and deleting data.
     *   **`data/`**: Contains mock data for seeding the database.
 *   **`server/`**: This directory contains a Node.js server, but it does not appear to be used by the main application, which is a local-only app.
-*   **`android/`**: Contains the Android project for the Capacitor app.
 
 ## Building and Running
 
@@ -52,4 +50,4 @@ The application is architected as a local-only, single-page application.
 *   Styling is done with Tailwind CSS and a set of `radix-ui` components.
 *   The application state is managed within the `App.tsx` component.
 *   Data is stored locally in IndexedDB. All interactions with the database are handled by the `src/services/localDb.ts` file.
-*   The application is designed to be a hybrid mobile app for Android using Capacitor.
+*   The application is designed to run directly in the browser (including tablet browsers).

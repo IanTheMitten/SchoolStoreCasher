@@ -10,15 +10,10 @@ npm run build       # Create production build
 npm run preview     # Test production build locally
 ```
 
-### Android Deployment (Capacitor Method)
+### Deployment (Web/PWA)
 ```bash
-npm install @capacitor/core @capacitor/cli --save-dev
-npx cap init
-npx cap add android
 npm run build
-npx cap copy android
-npx cap open android
-# Then build and run from Android Studio
+npm run preview
 ```
 
 ---
@@ -31,7 +26,7 @@ npx cap open android
 | Data on remote server | Data on device |
 | Requires internet | Works offline |
 | Can sync across devices | Single device only |
-| Server deployment needed | Deploy as web/Android app |
+| Server deployment needed | Deploy as web/PWA app |
 
 ---
 
@@ -85,7 +80,6 @@ npx cap open android
 
 ### Added
 - ✅ Pure local storage
-- ✅ Android compatibility
 - ✅ Offline capability
 - ✅ Standalone operation
 
@@ -101,28 +95,18 @@ Creates `build/` folder with production files
 
 ### Step 2: Choose Method
 
-**Option A: Capacitor (Recommended)**
-```bash
-npm install @capacitor/core @capacitor/cli --save-dev
-npx cap init  # com.schoolstore.cashier
-npx cap add android
-npx cap copy android
-npx cap open android
-# Build from Android Studio
-```
-
-**Option B: PWA (Simple)**
+**Option A: PWA (Recommended)**
 - Upload `build/` folder to web server
 - Access from tablet browser
 - Add to home screen
 
-**Option C: Cordova**
+**Option B: Cordova (Optional)**
 ```bash
 npm install -g cordova
 cordova create app com.schoolstore.cashier
-cordova platform add android
+cordova platform add browser
 # Copy build/* to www/
-cordova build android --release
+cordova build browser --release
 ```
 
 ---
@@ -183,7 +167,7 @@ cordova build android --release
 ✅ **Data persistent** - Survives app restart
 ✅ **Fast** - Local database is speedy
 ✅ **Simple** - No complex deployment
-✅ **Mobile ready** - Optimized for Android
+✅ **Mobile ready** - Optimized for tablet browsers
 
 ---
 
@@ -191,14 +175,14 @@ cordova build android --release
 
 **✅ PRODUCTION READY**
 
-All features working. All tests passing. Ready for Android deployment.
+All features working. Ready for web/PWA deployment.
 
 ---
 
 ## 📚 Full Guides
 
 - **Detailed Setup**: See `STANDALONE_CONVERSION.md`
-- **Android Deploy**: See `ANDROID_DEPLOYMENT.md`
+- **Deployment Guide**: See project deployment docs
 - **Technical Info**: See `CONVERSION_ANALYSIS.md`
 - **Implementation Details**: See `IMPLEMENTATION_SUMMARY.md`
 
@@ -212,4 +196,3 @@ All features working. All tests passing. Ready for Android deployment.
 4. Verify `build/` folder has files
 
 **All documentation included in project root directory.**
-

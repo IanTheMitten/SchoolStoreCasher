@@ -8,26 +8,15 @@ npm run preview        # Test it locally
 # See build/ folder with production files
 ```
 
-## 📱 Deploy to Android (Choose One)
+## 📱 Deploy (Choose One)
 
-### Option 1: Capacitor (Recommended - Native App)
-```bash
-npm install @capacitor/core @capacitor/cli --save-dev
-npx cap init
-npx cap add android
-npm run build
-npx cap copy android
-npx cap open android   # Opens Android Studio
-# Build and run from there
-```
-
-### Option 2: PWA (Simplest - Just Upload)
+### Option 1: PWA (Recommended - Simplest)
 1. `npm run build`
 2. Upload `build/` folder to any web server
 3. Access from tablet browser
 4. Add to home screen
 
-### Option 3: Cordova (Alternative)
+### Option 2: Cordova (Alternative)
 See `ANDROID_DEPLOYMENT.md` for detailed steps
 
 ## 📚 Documentation (Pick What You Need)
@@ -37,7 +26,7 @@ See `ANDROID_DEPLOYMENT.md` for detailed steps
 |------|---------|--------------|
 | **QUICK_START.md** | Commands and quick reference | First thing - 2 min read |
 | **STANDALONE_CONVERSION.md** | What changed and why | Before deployment |
-| **ANDROID_DEPLOYMENT.md** | Complete deployment guide | When deploying to Android |
+| **ANDROID_DEPLOYMENT.md** | Legacy deployment guide | Only if you still need Cordova packaging |
 | **CONVERSION_ANALYSIS.md** | Technical details | For technical review |
 | **IMPLEMENTATION_SUMMARY.md** | What was done | For detailed info |
 | **COMPLETION_REPORT.txt** | Full project report | For comprehensive overview |
@@ -86,7 +75,7 @@ New: App → IndexedDB (on device)
 - ✅ Data stays on device
 - ✅ No server to manage
 - ✅ Faster (local database)
-- ✅ Deploy as Android app
+- ✅ Deploy as web/PWA app
 
 ## 📋 Files Changed
 
@@ -116,9 +105,9 @@ New: App → IndexedDB (on device)
 3. ✅ Verify `build/` folder exists
 
 ### This Week
-1. Choose deployment method (Capacitor recommended)
+1. Choose deployment method (PWA recommended)
 2. Follow deployment guide
-3. Test on Android tablet
+3. Test on your target tablet/browser
 
 ### This Month
 1. Deploy to production
@@ -178,7 +167,7 @@ New: App → IndexedDB (on device)
 
 ### Find Documentation
 - **Quick help**: QUICK_START.md
-- **Android setup**: ANDROID_DEPLOYMENT.md
+- **Deployment setup**: project deployment docs
 - **Technical info**: CONVERSION_ANALYSIS.md
 - **Detailed guide**: IMPLEMENTATION_SUMMARY.md
 
@@ -197,7 +186,7 @@ New: App → IndexedDB (on device)
 ✅ No server needed
 ✅ Works offline
 ✅ Local data storage
-✅ Works on Android
+✅ Works on web/PWA
 ✅ Ready for production
 ```
 
@@ -213,22 +202,16 @@ npm run dev              # Start dev server
 npm run build            # Create production build
 npm run preview          # Test production build
 
-# Deploy to Android (Capacitor)
-npm install @capacitor/core @capacitor/cli --save-dev
-npx cap init
-npx cap add android
+# Deploy to web/PWA
 npm run build
-npx cap copy android
-npx cap open android
+npm run preview
 ```
 
 ---
 
 **Status: ✅ PRODUCTION READY**
 
-Start with `npm run build` then follow ANDROID_DEPLOYMENT.md for your chosen deployment method.
-
-Choose Capacitor for the best native Android experience!
+Start with `npm run build` then deploy the `build/` directory to your web host.
 
 ---
 
