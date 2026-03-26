@@ -2,7 +2,7 @@
       "name": "Cashier UX Flow",
       "version": "0.1.0",
       "private": true,
-      "description": "Standalone local cashier and inventory management app for Android tablets. All data stored locally in IndexedDB.",
+      "description": "Standalone local cashier and inventory management web app. All data stored locally in IndexedDB.",
       "dependencies": {
             "@radix-ui/react-accordion": "^1.2.3",
             "@radix-ui/react-alert-dialog": "^1.1.6",
@@ -48,9 +48,6 @@
             "vaul": "^1.1.2"
       },
       "devDependencies": {
-            "@capacitor/android": "^7.4.4",
-            "@capacitor/cli": "^7.4.4",
-            "@capacitor/core": "^7.4.4",
             "@types/node": "^20.10.0",
             "@vitejs/plugin-react-swc": "^3.10.2",
             "vite": "6.3.5"
