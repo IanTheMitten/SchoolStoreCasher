@@ -146,7 +146,7 @@ New: App → IndexedDB (on device)
 **A:** Yes, completely offline. No internet needed.
 
 ### Q: What about existing data?
-**A:** App starts with 10 sample products and students. Can import existing data if available.
+**A:** App starts with an empty database so you can set up your own products and students. You can still import existing data if available.
 
 ### Q: Can I sync across devices?
 **A:** No, data stays on one device. Can export/import manually.

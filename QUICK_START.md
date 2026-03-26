@@ -44,9 +44,9 @@ npm run preview
 - **expenses** - Operational costs
 
 ### First Launch
-- App automatically loads 10 sample products
-- App automatically loads 10 sample students
-- All data edits saved to IndexedDB
+- App starts with an empty database
+- Add your own products/students from the app
+- All data edits are saved to IndexedDB
 
 ---
 
