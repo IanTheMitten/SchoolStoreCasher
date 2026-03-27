@@ -24,7 +24,6 @@ interface AddExpenseModalProps {
 const NONE_PRODUCT = '__none__';
 
 const expenseCategories = [
-  'Inventory Purchase',
   'Utilities',
   'Supplies',
   'Equipment',
@@ -36,14 +35,11 @@ const expenseCategories = [
 export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalProps) {
   const [formData, setFormData] = useState({
     amount: '',
-    category: 'Inventory Purchase',
+    category: 'Utilities',
     note: '',
     productId: NONE_PRODUCT,
-    quantity: '',
     receiptRef: ''
   });
-
-  const requiresProduct = formData.category === 'Inventory Purchase';
 
   const handleSubmit = () => {
     if (!formData.amount || !formData.category) {
@@ -57,16 +53,7 @@ export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalPro
       return;
     }
 
-    if (requiresProduct && formData.productId === NONE_PRODUCT) {
-      toast.error('Please select a related product for inventory purchase');
-      return;
-    }
 
-    const purchaseQuantity = requiresProduct ? parseInt(formData.quantity, 10) : undefined;
-    if (requiresProduct && (!purchaseQuantity || isNaN(purchaseQuantity) || purchaseQuantity <= 0)) {
-      toast.error('Please enter a valid quantity bought');
-      return;
-    }
 
     const expense: Expense = {
       id: `exp${Date.now()}`,
@@ -75,7 +62,6 @@ export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalPro
       amount,
       note: formData.note,
       productId: formData.productId === NONE_PRODUCT ? undefined : formData.productId,
-      purchaseQuantity,
       receiptRef: formData.receiptRef || undefined
     };
 
@@ -122,7 +108,7 @@ export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalPro
 
           <div>
             <Label htmlFor="product">
-              {requiresProduct ? 'Related Product *' : 'Related Product (optional)'}
+              Related Product (optional)
             </Label>
             <Select
               value={formData.productId}
@@ -132,7 +118,7 @@ export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalPro
                 <SelectValue placeholder="Select product..." />
               </SelectTrigger>
               <SelectContent>
-                {!requiresProduct && <SelectItem value={NONE_PRODUCT}>None</SelectItem>}
+                <SelectItem value={NONE_PRODUCT}>None</SelectItem>
                 {products.map(product => (
                   <SelectItem key={product.id} value={product.id}>
                     {product.name}
@@ -142,20 +128,6 @@ export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalPro
             </Select>
           </div>
 
-          {requiresProduct && (
-            <div>
-              <Label htmlFor="quantity">Quantity Bought *</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="1"
-                step="1"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                placeholder="0"
-              />
-            </div>
-          )}
 
           <div>
             <Label htmlFor="receiptRef">Receipt Reference</Label>
