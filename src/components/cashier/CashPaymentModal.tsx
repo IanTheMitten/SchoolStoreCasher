@@ -3,6 +3,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Search } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import type { CartItem, Transaction, Student } from '../../App';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { roundMoney } from '../../utils/formatCurrency';
@@ -12,6 +19,14 @@ interface CustomerOption {
   name: string;
   type: 'student' | 'teacher';
   detail?: string;
+  group: string;
+}
+
+interface Teacher {
+  id: string;
+  name: string;
+  subject?: string;
+  email?: string;
 }
 
 interface CashPaymentModalProps {
@@ -39,29 +54,42 @@ export function CashPaymentModal({
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [showCustomerSelector, setShowCustomerSelector] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [customerGroupFilter, setCustomerGroupFilter] = useState<string>('all');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null);
   const change = roundMoney((cashReceived || 0) - total);
   const normalizedSearch = customerSearch.trim().toLowerCase();
+  const sortedGrades = Array.from(
+    new Set((students || []).map((student) => student.grade).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
   const customerOptions: CustomerOption[] = [
     ...(students || []).map((student) => ({
       id: student.id,
       name: student.name,
       type: 'student' as const,
       detail: student.grade,
+      group: student.grade || 'Ungrouped',
     })),
-    ...(teachers || []).map((teacher) => ({
+    ...(teachers as Teacher[] || []).map((teacher) => ({
       id: teacher.id,
       name: teacher.name,
       type: 'teacher' as const,
       detail: teacher.subject || teacher.email || 'Teacher',
+      group: 'Teachers',
     })),
   ];
   const filteredCustomers = customerOptions.filter(
     (customer) =>
-      !normalizedSearch ||
-      customer.name.toLowerCase().includes(normalizedSearch) ||
-      customer.id.toLowerCase().includes(normalizedSearch) ||
-      (customer.detail || '').toLowerCase().includes(normalizedSearch)
+      (
+        customerGroupFilter === 'all' ||
+        (customerGroupFilter === 'teachers' && customer.type === 'teacher') ||
+        (customerGroupFilter.startsWith('grade:') && customer.type === 'student' && customer.group === customerGroupFilter.slice(6))
+      ) &&
+      (
+        !normalizedSearch ||
+        customer.name.toLowerCase().includes(normalizedSearch) ||
+        customer.id.toLowerCase().includes(normalizedSearch) ||
+        (customer.detail || '').toLowerCase().includes(normalizedSearch)
+      )
   );
 
   const quickAmounts = [
@@ -115,7 +143,7 @@ export function CashPaymentModal({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Cash Payment</DialogTitle>
         </DialogHeader>
@@ -182,6 +210,22 @@ export function CashPaymentModal({
                     value={customerSearch}
                     onChange={(e) => setCustomerSearch((e.target as HTMLInputElement).value)}
                   />
+                </div>
+                <div className="mb-2">
+                  <Select value={customerGroupFilter} onValueChange={setCustomerGroupFilter}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Filter by group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Customers</SelectItem>
+                      <SelectItem value="teachers">Teachers</SelectItem>
+                      {sortedGrades.map((grade) => (
+                        <SelectItem key={grade} value={`grade:${grade}`}>
+                          Grade {grade}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="max-h-64 overflow-y-auto overscroll-contain border rounded">
                   {filteredCustomers.map(customer => (
