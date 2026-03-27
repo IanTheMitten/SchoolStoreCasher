@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Product } from '../../App';
 
@@ -11,8 +10,6 @@ interface ProductSearchProps {
   onAddToCart: (product: Product) => void;
   searchInputRef: React.RefObject<HTMLInputElement>;
 }
-
-const quickItems = ['Notebook (A4)', 'Pencil Set', 'Eraser', 'Ruler (30cm)'];
 
 export function ProductSearch({ products, onAddToCart, searchInputRef }: ProductSearchProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,8 +53,6 @@ export function ProductSearch({ products, onAddToCart, searchInputRef }: Product
     return productsByCategory[selectedCategory];
   }, [selectedCategory, productsByCategory]);
 
-  const quickProducts = products.filter(p => quickItems.includes(p.name));
-
   const getStockBadge = (stock: number) => {
     if (stock === 0) {
       return { label: 'Out of Stock', className: 'bg-gray-100 text-gray-600 border-gray-200' };
@@ -85,32 +80,11 @@ export function ProductSearch({ products, onAddToCart, searchInputRef }: Product
         </div>
       </div>
 
-      {/* Quick Items */}
-      {!searchQuery && (
-        <div className="p-4 border-b border-gray-200 shrink-0">
-          <div className="text-gray-600 text-sm mb-3">Quick Access</div>
-          <div className="grid grid-cols-2 gap-3">
-            {quickProducts.map(product => (
-              <Button
-                key={product.id}
-                variant="outline"
-                onClick={() => onAddToCart(product)}
-                disabled={product.stock === 0}
-                className="h-[80px] flex flex-col items-start justify-between p-4"
-              >
-                <div className="text-gray-900 text-left">{product.name}</div>
-                <div className="text-gray-600 text-sm">{formatCurrency(product.price)}</div>
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Category + Products split layout */}
       <div className="flex-1 flex min-h-0">
         {/* Left: Categories */}
-        <div className="w-[160px] shrink-0 border-r border-gray-200 flex flex-col bg-gray-50/50">
-          <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">
+        <div className="w-[220px] shrink-0 border-r border-gray-200 flex flex-col bg-gray-50/50">
+          <div className="px-4 py-3 text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">
             Categories
           </div>
           <div className="flex-1 overflow-auto py-1">
@@ -118,14 +92,14 @@ export function ProductSearch({ products, onAddToCart, searchInputRef }: Product
               <button
                 key={category}
                 onClick={() => setSelectedCategory(category)}
-                className={`w-full px-4 py-3 text-left text-sm transition-colors flex items-center gap-1 ${
+                className={`w-full px-5 py-4 text-left text-base transition-colors flex items-center gap-2 ${
                   selectedCategory === category
                     ? 'bg-primary text-primary-foreground font-medium'
                     : 'hover:bg-gray-200/70 text-gray-700'
                 }`}
               >
                 <span className="truncate flex-1 min-w-0">{category}</span>
-                <span className="text-xs opacity-75 shrink-0">({productsByCategory[category].length})</span>
+                <span className="text-sm opacity-75 shrink-0">({productsByCategory[category].length})</span>
               </button>
             ))}
           </div>
