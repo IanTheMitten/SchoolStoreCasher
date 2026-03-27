@@ -98,7 +98,7 @@ export const expensesAPI = {
     return localDb.getAllExpenses(filters as any);
   },
   
-  create: async (expense: { amount: number; category?: string; note?: string; related_product_id?: string; datetime?: string }) => {
+  create: async (expense: { amount: number; category?: string; note?: string; related_product_id?: string; purchase_quantity?: number; datetime?: string }) => {
     return localDb.createExpense(expense);
   },
   
@@ -142,4 +142,3 @@ export const categoriesAPI = {
     return localDb.deleteCategory(id);
   }
 };
-
