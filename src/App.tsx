@@ -69,6 +69,7 @@ export interface Expense {
   amount: number;
   note: string;
   productId?: string;
+  purchaseQuantity?: number;
   receiptRef?: string;
 }
 
@@ -244,6 +245,7 @@ export default function App() {
           ...exp,
           date: new Date(exp.datetime),
           productId: exp.related_product_id,
+          purchaseQuantity: exp.purchase_quantity,
         })));
 
       } catch (error) {
@@ -381,6 +383,29 @@ export default function App() {
       });
       setProducts(updatedProducts);
 
+      if (adjustment.reason === 'restock' && adjustment.unitCost !== undefined && adjustment.quantity > 0) {
+        const restockExpense: Expense = {
+          id: `exp${Date.now()}`,
+          date: adjustment.date,
+          category: 'Inventory Purchase',
+          amount: adjustment.quantity * adjustment.unitCost,
+          note: adjustment.reference || `Inventory restock for ${products.find((p: Product) => p.id === adjustment.productId)?.name || 'product'}`,
+          productId: adjustment.productId,
+          purchaseQuantity: adjustment.quantity,
+        };
+
+        const expenseResult = await expensesAPI.create({
+          amount: restockExpense.amount,
+          category: restockExpense.category,
+          note: restockExpense.note,
+          related_product_id: restockExpense.productId,
+          purchase_quantity: restockExpense.purchaseQuantity,
+          datetime: restockExpense.date.toISOString(),
+        }) as any;
+
+        setExpenses((prev: Expense[]) => [{ ...restockExpense, id: expenseResult.id }, ...prev]);
+      }
+
       toast.success('Stock adjusted successfully');
     } catch (error: any) {
       console.error('Error adjusting stock:', error);
@@ -395,6 +420,7 @@ export default function App() {
         category: expense.category,
         note: expense.note,
         related_product_id: expense.productId,
+        purchase_quantity: expense.purchaseQuantity,
         datetime: expense.date.toISOString(),
       }) as any;
 
@@ -404,6 +430,45 @@ export default function App() {
       };
 
       setExpenses((prev: Expense[]) => [newExpense, ...prev]);
+
+      if (expense.category === 'Inventory Purchase' && expense.productId && expense.purchaseQuantity) {
+        const unitCost = expense.amount / expense.purchaseQuantity;
+        const stockResult = await productsAPI.adjustStock(expense.productId, {
+          change: expense.purchaseQuantity,
+          reason: 'restock',
+          unit_cost: unitCost,
+          reference: expense.note || expense.receiptRef,
+          user: 'John Smith',
+        }) as any;
+
+        setStockHistory((prev: StockAdjustment[]) => [
+          ...prev,
+          {
+            id: `adj${Date.now()}`,
+            productId: expense.productId!,
+            date: expense.date,
+            quantity: expense.purchaseQuantity,
+            reason: 'restock',
+            reference: expense.note || expense.receiptRef || undefined,
+            unitCost,
+            user: 'John Smith',
+          },
+        ]);
+
+        setProducts((prev: Product[]) =>
+          prev.map((product: Product) =>
+            product.id === expense.productId
+              ? {
+                  ...product,
+                  stock: stockResult.stock,
+                  unitCost: stockResult.unit_cost || product.unitCost,
+                  lastRestock: expense.date,
+                }
+              : product
+          )
+        );
+      }
+
       toast.success('Expense added successfully');
     } catch (error: any) {
       console.error('Error adding expense:', error);
