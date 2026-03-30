@@ -28,7 +28,7 @@ interface StudentManagementProps {
   onUpdateStudents: (students: Student[]) => void;
 }
 
-const grades = ['Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
+const grades = ['Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', '국내반'];
 const genders = ['Male', 'Female'];
 
 export function StudentManagement({ students, onUpdateStudents }: StudentManagementProps) {
