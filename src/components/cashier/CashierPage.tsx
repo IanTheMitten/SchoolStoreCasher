@@ -90,9 +90,9 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
   };
 
   return (
-    <div className="flex h-[calc(100vh-70px)]">
+    <div className="flex h-[calc(100vh-70px)] min-h-0">
       {/* Left Side - Product Search (65%) */}
-      <div className="w-[65%] border-r border-gray-200 overflow-hidden">
+      <div className="w-[65%] border-r border-gray-200 overflow-hidden min-h-0">
         <ProductSearch
           products={products}
           onAddToCart={handleAddToCart}
@@ -101,7 +101,7 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
       </div>
 
       {/* Right Side - Cart (35%) */}
-      <div className="w-[35%] overflow-hidden">
+      <div className="w-[35%] overflow-hidden min-h-0">
         <CartSection
           cart={cart}
           students={students}

@@ -81,13 +81,16 @@ export function ProductSearch({ products, onAddToCart, searchInputRef }: Product
       </div>
 
       {/* Category + Products split layout */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Left: Categories */}
-        <div className="w-[880px] shrink-0 border-r border-gray-200 flex flex-col bg-gray-50/50">
+        <div className="w-[280px] shrink-0 border-r border-gray-200 flex flex-col bg-gray-50/50">
           <div className="px-4 py-3 text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">
             Categories
           </div>
-          <div className="flex-1 overflow-auto py-1">
+          <div
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-1 touch-pan-y"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
             {categories.map((category) => (
               <button
                 key={category}
@@ -107,7 +110,10 @@ export function ProductSearch({ products, onAddToCart, searchInputRef }: Product
 
         {/* Right: Products in selected category */}
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 overflow-auto">
+          <div
+            className="flex-1 min-h-0 overflow-y-auto overscroll-contain touch-pan-y"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
             {filteredProducts.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 No products found matching "{searchQuery}"
