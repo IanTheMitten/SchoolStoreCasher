@@ -48,7 +48,7 @@ export function CartSection({
       </div>
 
       {/* Cart Items */}
-      <div className="flex-1 overflow-auto p-4 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-4 space-y-3 touch-pan-y">
         {cart.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             Cart is empty. Scan or select items to begin.
