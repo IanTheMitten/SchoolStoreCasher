@@ -20,11 +20,18 @@ interface AddProductModalProps {
   onAdd: (product: Product) => void;
   onClose: () => void;
   categories?: { id?: string; name: string }[] | string[];
+  existingProducts?: Product[];
 }
 
 const defaultCategories = ['Stationery', 'Uniform', 'Electronics', 'Art', 'Accessories'];
+const BARCODE_ALLOWED_PATTERN = import.meta.env.VITE_BARCODE_ALLOWED_PATTERN || '^\\d+$';
+const BARCODE_ALLOWED_REGEX = new RegExp(BARCODE_ALLOWED_PATTERN);
+const BARCODE_ALLOWED_LENGTHS = (import.meta.env.VITE_BARCODE_ALLOWED_LENGTHS || '8,13')
+  .split(',')
+  .map((item) => Number(item.trim()))
+  .filter((item) => Number.isInteger(item) && item > 0);
 
-export function AddProductModal({ onAdd, onClose, categories }: AddProductModalProps) {
+export function AddProductModal({ onAdd, onClose, categories, existingProducts = [] }: AddProductModalProps) {
   const resolvedCategories = (categories && categories.length)
     ? categories.map((c: any) => (typeof c === 'string' ? { name: c } : { name: c.name }))
     : defaultCategories.map((n) => ({ name: n }));
@@ -48,6 +55,27 @@ export function AddProductModal({ onAdd, onClose, categories }: AddProductModalP
       return;
     }
 
+    const barcode = formData.barcode.trim();
+    if (barcode) {
+      if (!BARCODE_ALLOWED_REGEX.test(barcode)) {
+        toast.error('Barcode contains unsupported characters');
+        return;
+      }
+
+      if (BARCODE_ALLOWED_LENGTHS.length > 0 && !BARCODE_ALLOWED_LENGTHS.includes(barcode.length)) {
+        toast.error(`Barcode length must be one of: ${BARCODE_ALLOWED_LENGTHS.join(', ')}`);
+        return;
+      }
+
+      const duplicateProduct = existingProducts.find(
+        (product) => (product.barcode || '').trim().toLowerCase() === barcode.toLowerCase()
+      );
+      if (duplicateProduct) {
+        toast.error(`Barcode already exists on "${duplicateProduct.name}"`);
+        return;
+      }
+    }
+
     try {
       const result = await productsAPI.create({
         sku: formData.sku,
@@ -59,7 +87,7 @@ export function AddProductModal({ onAdd, onClose, categories }: AddProductModalP
         stock: parseInt(formData.stock),
         reorderLevel: parseInt(formData.reorderLevel),
         supplier: formData.supplier || undefined,
-        barcode: formData.barcode || undefined
+        barcode: barcode || undefined
       });
 
       const newProduct: Product = {
@@ -108,8 +136,11 @@ export function AddProductModal({ onAdd, onClose, categories }: AddProductModalP
               id="barcode"
               value={formData.barcode}
               onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-              placeholder="Optional"
+              placeholder="Scan barcode here or type manually."
             />
+            <p className="mt-1 text-xs text-gray-500">
+              Digits only by default. Configure custom charset/length via barcode env settings.
+            </p>
           </div>
 
           <div className="col-span-2">
