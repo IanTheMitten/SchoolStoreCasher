@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../ui/select';
+import { toast } from 'sonner';
 import type { CartItem, Transaction, Student } from '../../App';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { roundMoney } from '../../utils/formatCurrency';
@@ -54,6 +55,7 @@ export function CashPaymentModal({
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [showCustomerSelector, setShowCustomerSelector] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const [studentBarcodeScan, setStudentBarcodeScan] = useState('');
   const [customerGroupFilter, setCustomerGroupFilter] = useState<string>('all');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null);
   const change = roundMoney((cashReceived || 0) - total);
@@ -91,6 +93,7 @@ export function CashPaymentModal({
         (customer.detail || '').toLowerCase().includes(normalizedSearch)
       )
   );
+  const studentRecords = (students || []) as Array<Student & { barcode?: string }>;
 
   const quickAmounts = [
     { label: 'Exact', value: total, accumulate: false },
@@ -139,6 +142,40 @@ export function CashPaymentModal({
     };
 
     onComplete(transaction);
+  };
+
+  const handleStudentBarcodeMatch = (scannedValue: string) => {
+    const normalizedBarcode = scannedValue.trim().toLowerCase();
+    if (!normalizedBarcode) {
+      return;
+    }
+
+    const matchedStudents = studentRecords.filter(
+      (student) => (student.barcode || '').trim().toLowerCase() === normalizedBarcode
+    );
+
+    if (matchedStudents.length === 1) {
+      const matchedStudent = matchedStudents[0];
+      setSelectedCustomer({
+        id: matchedStudent.id,
+        name: matchedStudent.name,
+        type: 'student',
+        detail: matchedStudent.grade,
+        group: matchedStudent.grade || 'Ungrouped',
+      });
+      setShowCustomerSelector(false);
+      setStudentBarcodeScan('');
+      return;
+    }
+
+    if (matchedStudents.length > 1) {
+      toast.error(
+        'Duplicate student barcode detected. Admin cleanup is required before checkout can continue.'
+      );
+      return;
+    }
+
+    toast.error('Student barcode not found');
   };
 
   return (
@@ -202,6 +239,19 @@ export function CashPaymentModal({
             </Button>
             {showCustomerSelector && (
               <div className="mt-2 rounded border bg-white p-2">
+                <div className="mb-2">
+                  <Input
+                    placeholder="Scan student ID barcode..."
+                    value={studentBarcodeScan}
+                    onChange={(e) => setStudentBarcodeScan((e.target as HTMLInputElement).value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleStudentBarcodeMatch(studentBarcodeScan);
+                      }
+                    }}
+                  />
+                </div>
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
                   <Input
