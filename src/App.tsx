@@ -595,6 +595,7 @@ export default function App() {
       
       {currentPage === 'cashier' && (
         <CashierPage 
+          products={products}
           students={students}
           teachers={teachers}
           onAddTransaction={handleAddTransaction}
@@ -603,6 +604,7 @@ export default function App() {
       
       {currentPage === 'inventory' && (
         <InventoryPage 
+          products={products}
           stockHistory={stockHistory}
           onUpdateProducts={handleUpdateProducts}
           onAddStockAdjustment={handleAddStockAdjustment}
@@ -616,6 +618,7 @@ export default function App() {
         <BudgetPage 
           transactions={transactions}
           expenses={expenses}
+          products={products}
           students={students}
           teachers={teachers}
           onAddExpense={handleAddExpense}
@@ -643,7 +646,7 @@ export default function App() {
       {currentPage === 'statistic' && (
         <StatisticPage
           transactions={transactions}
-          students={students}
+          products={products}
         />
       )}
       

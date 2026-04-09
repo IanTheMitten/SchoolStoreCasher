@@ -3,41 +3,41 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import type { Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
-import { revenueByTimePeriod } from './aggregation';
+import { getTimePeriodRevenueData } from './timePeriodAnalytics';
+import type { StatisticSamplingOptions } from './analyticsSampling';
 
 interface TimePeriodRevenueBarChartProps {
   transactions: Transaction[];
+  samplingOptions: StatisticSamplingOptions;
   selectedPeriodId: string | null;
   onSelectPeriod: (periodId: string) => void;
 }
 
 export function TimePeriodRevenueBarChart({
   transactions,
+  samplingOptions,
   selectedPeriodId,
   onSelectPeriod,
 }: TimePeriodRevenueBarChartProps) {
   const { formatCurrency } = useCurrency();
 
-  const data = useMemo(() => revenueByTimePeriod(transactions), [transactions]);
-  const topPeriod = useMemo(() => {
-    if (data.length === 0) {
-      return null;
-    }
-    return data.reduce((best, row) => (row.revenue > best.revenue ? row : best), data[0]);
-  }, [data]);
+  const { data, sampledDayCount } = useMemo(
+    () => getTimePeriodRevenueData(transactions, samplingOptions),
+    [transactions, samplingOptions],
+  );
 
   return (
     <Card className="p-6">
       <div className="mb-4">
-        <h3 className="text-gray-900">Revenue by Time Period</h3>
+        <h3 className="text-gray-900">Average Revenue by Time Period</h3>
         <p className="text-sm text-gray-600 mt-1">
-          Actual totals from selected dates. Top period: {topPeriod?.label ?? '—'} ({formatCurrency(topPeriod?.revenue ?? 0)}).
+          Denominator = {sampledDayCount} sampled eligible day{sampledDayCount === 1 ? '' : 's'}.
         </p>
       </div>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis dataKey="label" stroke="#6b7280" style={{ fontSize: '12px' }} />
+          <XAxis dataKey="periodLabel" stroke="#6b7280" style={{ fontSize: '12px' }} />
           <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
           <Tooltip
             contentStyle={{
@@ -46,28 +46,23 @@ export function TimePeriodRevenueBarChart({
               borderRadius: '8px',
               fontSize: '12px',
             }}
-            formatter={(value: number, name: string) => {
-              if (name === 'Revenue') {
-                return [formatCurrency(value), 'Revenue'];
-              }
-              return [value, name];
-            }}
-            labelFormatter={(label, payload) => `${label} • ${payload?.[0]?.payload?.txCount ?? 0} transactions`}
+            formatter={(value: number) => formatCurrency(value)}
+            labelFormatter={(label) => `${label} average`}
           />
           <Bar
-            dataKey="revenue"
-            name="Revenue"
+            dataKey="avgRevenue"
+            name="Average Revenue"
             radius={[6, 6, 0, 0]}
             onClick={(entry) => {
-              if (entry?.id) {
-                onSelectPeriod(entry.id);
+              if (entry?.periodId) {
+                onSelectPeriod(entry.periodId);
               }
             }}
           >
             {data.map((entry) => (
               <Cell
-                key={entry.id}
-                fill={selectedPeriodId === entry.id ? '#1d4ed8' : '#3b82f6'}
+                key={entry.periodId}
+                fill={selectedPeriodId === entry.periodId ? '#1d4ed8' : '#3b82f6'}
                 cursor="pointer"
               />
             ))}

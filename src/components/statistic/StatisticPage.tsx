@@ -1,38 +1,43 @@
 import { useMemo, useState } from 'react';
-import type { Student, Transaction } from '../../App';
+import type { Product, Transaction } from '../../App';
 import { Card } from '../ui/card';
-import { DateRangeSelector } from '../budget/DateRangeSelector';
-import type { DateRange } from '../budget/BudgetPage';
 import { TimePeriodRevenueBarChart } from './TimePeriodRevenueBarChart';
 import { TimePeriodCumulativeLine } from './TimePeriodCumulativeLine';
-import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
+import { ProductAverageRevenueTable } from './ProductAverageRevenueTable';
 import { CANONICAL_TIME_PERIODS } from './timePeriodAnalytics';
-import { KPIRow } from './KPIRow';
-import { TopProductsTable } from './TopProductsTable';
-import { BestDaysTable } from './BestDaysTable';
-import { TopCustomersTable } from './TopCustomersTable';
-import { filterByDateRange, getDateRangeBounds } from './aggregation';
+import { DateRangeSelector } from './DateRangeSelector';
+import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
+import type { StatisticDateRange, StatisticSamplingOptions } from './analyticsSampling';
 
 interface StatisticPageProps {
   transactions: Transaction[];
-  students: Student[];
+  products: Product[];
 }
 
-export function StatisticPage({ transactions, students }: StatisticPageProps) {
-  const [dateRange, setDateRange] = useState<DateRange>('thisMonth');
-  const [customStart, setCustomStart] = useState<Date | null>(null);
-  const [customEnd, setCustomEnd] = useState<Date | null>(null);
+function formatMonthInputValue(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+function parseMonthInputValue(value: string): Date {
+  const [year, month] = value.split('-').map(Number);
+  return new Date(year, month - 1, 1);
+}
+
+export function StatisticPage({ transactions, products }: StatisticPageProps) {
+  const [dateRange, setDateRange] = useState<StatisticDateRange>('thisMonth');
+  const [chosenMonth, setChosenMonth] = useState(() => formatMonthInputValue(new Date()));
+  const [samplingSeed, setSamplingSeed] = useState('');
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(CANONICAL_TIME_PERIODS[0].id);
 
-  const range = useMemo(
-    () => getDateRangeBounds(dateRange, transactions, customStart, customEnd),
-    [dateRange, transactions, customStart, customEnd],
-  );
+  const chosenMonthDate = useMemo(() => parseMonthInputValue(chosenMonth), [chosenMonth]);
 
-  const filteredTransactions = useMemo(
-    () => filterByDateRange(transactions, range.start, range.end),
-    [transactions, range.start, range.end],
-  );
+  const samplingOptions = useMemo<StatisticSamplingOptions>(() => ({
+    dateRange,
+    chosenMonthDate,
+    seed: samplingSeed || undefined,
+  }), [dateRange, chosenMonthDate, samplingSeed]);
 
   return (
     <div className="h-[calc(100vh-70px)] overflow-auto">
@@ -40,40 +45,39 @@ export function StatisticPage({ transactions, students }: StatisticPageProps) {
         <Card className="p-6 flex flex-col gap-3">
           <div>
             <h2 className="text-gray-900">Statistic</h2>
-            <p className="text-sm text-gray-600 mt-1">Direct aggregation over real transactions — no sampling.</p>
+            <p className="text-sm text-gray-600 mt-1">Weekday average revenue analytics sampled from eligible transaction days.</p>
           </div>
 
           <DateRangeSelector
             dateRange={dateRange}
             onDateRangeChange={setDateRange}
-            customStart={customStart}
-            customEnd={customEnd}
-            onCustomStartChange={setCustomStart}
-            onCustomEndChange={setCustomEnd}
+            chosenMonth={chosenMonth}
+            onChosenMonthChange={setChosenMonth}
+            seed={samplingSeed}
+            onSeedChange={setSamplingSeed}
           />
         </Card>
 
-        <KPIRow transactions={filteredTransactions} />
-
-        <WeekdayRevenueBarChart transactions={filteredTransactions} />
+        <WeekdayRevenueBarChart transactions={transactions} samplingOptions={samplingOptions} />
 
         <TimePeriodRevenueBarChart
-          transactions={filteredTransactions}
+          transactions={transactions}
+          samplingOptions={samplingOptions}
           selectedPeriodId={selectedPeriodId}
           onSelectPeriod={setSelectedPeriodId}
         />
 
         <TimePeriodCumulativeLine
-          transactions={filteredTransactions}
+          transactions={transactions}
+          samplingOptions={samplingOptions}
           selectedPeriodId={selectedPeriodId}
         />
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <TopProductsTable transactions={filteredTransactions} />
-          <BestDaysTable transactions={filteredTransactions} />
-        </div>
-
-        <TopCustomersTable transactions={filteredTransactions} students={students} />
+        <ProductAverageRevenueTable
+          transactions={transactions}
+          products={products}
+          samplingOptions={samplingOptions}
+        />
       </div>
     </div>
   );
