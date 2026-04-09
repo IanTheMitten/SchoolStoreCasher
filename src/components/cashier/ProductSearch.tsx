@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { useCurrency } from '../../contexts/CurrencyContext';
+import { toast } from 'sonner';
 import type { Product } from '../../App';
 
 interface ProductSearchProps {
@@ -26,8 +27,13 @@ export function ProductSearch({
   isConnectingScanner,
 }: ProductSearchProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [scanError, setScanError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const lastKeyTsRef = useRef<number | null>(null);
+  const fastKeyCountRef = useRef(0);
   const { formatCurrency } = useCurrency();
+  const SCAN_BURST_MAX_INTERVAL_MS = 45;
+  const MIN_FAST_KEYS_FOR_SCAN = 4;
 
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
@@ -75,6 +81,68 @@ export function ProductSearch({
     return { label: `${stock} left`, className: 'bg-green-100 text-green-800 border-green-200' };
   };
 
+  const resetScanBurstTracking = () => {
+    lastKeyTsRef.current = null;
+    fastKeyCountRef.current = 0;
+  };
+
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value);
+    if (scanError) {
+      setScanError(null);
+    }
+  };
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    const now = performance.now();
+    if (event.key === 'Enter') {
+      const query = searchQuery.trim();
+      const isLikelyScannerInput =
+        fastKeyCountRef.current >= MIN_FAST_KEYS_FOR_SCAN &&
+        query.length >= MIN_FAST_KEYS_FOR_SCAN;
+
+      if (!isLikelyScannerInput || !query) {
+        resetScanBurstTracking();
+        return;
+      }
+
+      event.preventDefault();
+      const normalizedBarcode = query.toLowerCase();
+      const barcodeMatches = products.filter(
+        (product) => (product.barcode || '').trim().toLowerCase() === normalizedBarcode
+      );
+
+      if (barcodeMatches.length === 1) {
+        onAddToCart(barcodeMatches[0]);
+        setSearchQuery('');
+        setScanError(null);
+      } else if (barcodeMatches.length > 1) {
+        const message = 'Multiple products share that barcode. Please fix barcode data.';
+        setScanError(message);
+        toast.error(message);
+      } else {
+        const message = 'No exact barcode match found. Please check and try again.';
+        setScanError(message);
+        toast.error(message);
+      }
+
+      resetScanBurstTracking();
+      return;
+    }
+
+    if (event.key.length === 1) {
+      if (lastKeyTsRef.current !== null && now - lastKeyTsRef.current <= SCAN_BURST_MAX_INTERVAL_MS) {
+        fastKeyCountRef.current += 1;
+      } else {
+        fastKeyCountRef.current = 1;
+      }
+      lastKeyTsRef.current = now;
+      return;
+    }
+
+    resetScanBurstTracking();
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Search Bar */}
@@ -84,13 +152,15 @@ export function ProductSearch({
           <Input
             ref={searchInputRef}
             type="text"
-            placeholder="Search by name or scan barcode..."
+            placeholder="Scan barcode here or type manually."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-[56px]"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            className={`pl-10 h-[56px] ${scanError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
             autoFocus
           />
         </div>
+        {scanError && <p className="mt-2 text-xs text-red-600">{scanError}</p>}
 
         <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
           <span className="text-xs text-gray-700">{scannerStatus}</span>
