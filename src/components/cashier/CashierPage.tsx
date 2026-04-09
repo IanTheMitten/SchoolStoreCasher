@@ -194,8 +194,9 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
   };
 
   const scannerApiStatus = scannerCapability?.message ?? 'Checking scanner support...';
+  const isConnectedMode = ['hid', 'serial', 'usb'].includes(scannerMode as string);
   const scannerConnectionStatus =
-    scannerMode === 'hid' || scannerMode === 'serial'
+    isConnectedMode
       ? `Connected (${scannerMode.toUpperCase()} mode)`
       : scannerCapability?.needsConnection
         ? 'Not connected'
@@ -212,8 +213,7 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
           scannerStatus={`${scannerApiStatus}; ${scannerConnectionStatus}`}
           showConnectScanner={
             Boolean(scannerCapability?.needsConnection) &&
-            scannerMode !== 'hid' &&
-            scannerMode !== 'serial'
+            !isConnectedMode
           }
           onConnectScanner={handleConnectScanner}
           isConnectingScanner={isConnectingScanner}
