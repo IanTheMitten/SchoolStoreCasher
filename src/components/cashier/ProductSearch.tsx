@@ -7,6 +7,17 @@ import { useCurrency } from '../../contexts/CurrencyContext';
 import { toast } from 'sonner';
 import type { Product } from '../../App';
 
+const parsePositiveIntEnv = (value: string | undefined, fallback: number) => {
+  const parsed = Number.parseInt(value ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const SCAN_BURST_MAX_INTERVAL_MS = parsePositiveIntEnv(
+  import.meta.env.VITE_SCAN_BURST_MAX_INTERVAL_MS,
+  100
+);
+const MIN_FAST_KEYS_FOR_SCAN = parsePositiveIntEnv(import.meta.env.VITE_MIN_FAST_KEYS_FOR_SCAN, 4);
+
 interface ProductSearchProps {
   products: Product[];
   onAddToCart: (product: Product) => void;
@@ -32,8 +43,6 @@ export function ProductSearch({
   const lastKeyTsRef = useRef<number | null>(null);
   const fastKeyCountRef = useRef(0);
   const { formatCurrency } = useCurrency();
-  const SCAN_BURST_MAX_INTERVAL_MS = 45;
-  const MIN_FAST_KEYS_FOR_SCAN = 4;
 
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
@@ -96,22 +105,28 @@ export function ProductSearch({
     const now = performance.now();
     if (event.key === 'Enter') {
       const query = searchQuery.trim();
+      if (!query) {
+        resetScanBurstTracking();
+        return;
+      }
+
+      const normalizedBarcode = query.toLowerCase();
+      const barcodeMatches = products.filter(
+        (product) => (product.barcode || '').trim().toLowerCase() === normalizedBarcode
+      );
       const isLikelyScannerInput =
         fastKeyCountRef.current >= MIN_FAST_KEYS_FOR_SCAN &&
         query.length >= MIN_FAST_KEYS_FOR_SCAN;
+      const hasUniqueBarcodeMatch = barcodeMatches.length === 1;
 
-      if (!isLikelyScannerInput || !query) {
+      if (!isLikelyScannerInput && !hasUniqueBarcodeMatch) {
         resetScanBurstTracking();
         return;
       }
 
       event.preventDefault();
-      const normalizedBarcode = query.toLowerCase();
-      const barcodeMatches = products.filter(
-        (product) => (product.barcode || '').trim().toLowerCase() === normalizedBarcode
-      );
 
-      if (barcodeMatches.length === 1) {
+      if (hasUniqueBarcodeMatch) {
         onAddToCart(barcodeMatches[0]);
         setSearchQuery('');
         setScanError(null);
