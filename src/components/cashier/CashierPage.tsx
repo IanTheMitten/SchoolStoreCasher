@@ -4,6 +4,12 @@ import { CartSection } from './CartSection';
 import { ReceiptModal } from './ReceiptModal';
 import { toast } from 'sonner';
 import type { Product, Student, CartItem, Transaction } from '../../App';
+import {
+  detectScannerCapability,
+  requestScannerConnection,
+  type ScannerCapability,
+  type ScannerMode,
+} from '../../services/scanner';
 
 interface CashierPageProps {
   products: Product[];
@@ -15,6 +21,9 @@ interface CashierPageProps {
 export function CashierPage({ products, students, teachers = [], onAddTransaction }: CashierPageProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null);
+  const [scannerCapability, setScannerCapability] = useState<ScannerCapability | null>(null);
+  const [isConnectingScanner, setIsConnectingScanner] = useState(false);
+  const [scannerMode, setScannerMode] = useState<ScannerMode>('keyboard');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus search after transaction
@@ -23,6 +32,34 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
       searchInputRef.current?.focus();
     }
   }, [completedTransaction]);
+
+  useEffect(() => {
+    const loadScannerCapability = async () => {
+      const capability = await detectScannerCapability();
+      setScannerCapability(capability);
+      setScannerMode(capability.mode);
+    };
+
+    void loadScannerCapability();
+  }, []);
+
+  const handleConnectScanner = async () => {
+    if (!scannerCapability) return;
+
+    try {
+      setIsConnectingScanner(true);
+      const mode = await requestScannerConnection(scannerCapability);
+      setScannerMode(mode);
+
+      if (mode === 'hid' || mode === 'serial' || mode === 'usb') {
+        toast.success('Scanner connected successfully');
+      }
+    } catch {
+      toast.error('Scanner connection cancelled or failed');
+    } finally {
+      setIsConnectingScanner(false);
+    }
+  };
 
   const handleAddToCart = (product: Product) => {
     if (product.stock === 0) {
@@ -97,6 +134,18 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
           products={products}
           onAddToCart={handleAddToCart}
           searchInputRef={searchInputRef}
+          scannerStatus={
+            scannerMode === 'hid' || scannerMode === 'serial' || scannerMode === 'usb'
+              ? `Scanner connected (${scannerMode.toUpperCase()} mode)`
+              : scannerCapability?.message ?? 'Checking scanner support...'
+          }
+          showConnectScanner={
+            Boolean(scannerCapability?.needsConnection) &&
+            scannerMode !== 'hid' &&
+            scannerMode !== 'serial'
+          }
+          onConnectScanner={handleConnectScanner}
+          isConnectingScanner={isConnectingScanner}
         />
       </div>
 
