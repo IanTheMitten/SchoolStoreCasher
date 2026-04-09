@@ -17,7 +17,7 @@ export function TopCustomersTable({ filteredTransactions, students }: TopCustome
     <Card className="p-6">
       <div className="mb-4">
         <h3 className="text-gray-900">Top Customers</h3>
-        <p className="text-sm text-gray-600 mt-1">Top 10 students by spend in the selected range.</p>
+        <p className="text-sm text-gray-600 mt-1">Top 10 customers by spend in the selected range.</p>
       </div>
 
       {rows.length === 0 ? (
@@ -27,7 +27,8 @@ export function TopCustomersTable({ filteredTransactions, students }: TopCustome
           <table className="w-full text-sm">
             <thead className="bg-gray-50 sticky top-0">
               <tr>
-                <th className="text-left p-2 text-gray-600">Student</th>
+                <th className="text-left p-2 text-gray-600">Customer</th>
+                <th className="text-left p-2 text-gray-600">Type</th>
                 <th className="text-left p-2 text-gray-600">Grade</th>
                 <th className="text-right p-2 text-gray-600">Spend</th>
                 <th className="text-right p-2 text-gray-600">Visits</th>
@@ -36,9 +37,10 @@ export function TopCustomersTable({ filteredTransactions, students }: TopCustome
             </thead>
             <tbody className="divide-y divide-gray-200">
               {rows.map((row) => (
-                <tr key={row.studentId} className="hover:bg-gray-50">
-                  <td className="p-2 text-gray-900">{row.studentName}</td>
-                  <td className="p-2 text-gray-900">{row.grade || '—'}</td>
+                <tr key={row.customerKey} className="hover:bg-gray-50">
+                  <td className="p-2 text-gray-900">{row.customerName}</td>
+                  <td className="p-2 text-gray-900 capitalize">{row.customerType}</td>
+                  <td className="p-2 text-gray-900">{row.customerType === 'student' ? (row.grade || '—') : '—'}</td>
                   <td className="p-2 text-right text-gray-900">{formatCurrency(row.revenue)}</td>
                   <td className="p-2 text-right text-gray-900">{row.visits}</td>
                   <td className="p-2 text-right text-gray-900">{formatCurrency(row.avgSpendPerVisit)}</td>

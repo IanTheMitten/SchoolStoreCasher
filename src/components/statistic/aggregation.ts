@@ -145,8 +145,10 @@ export function topProducts(transactions: Transaction[], limit = Number.POSITIVE
 }
 
 export interface CustomerRankingRow {
-  studentId: string;
-  studentName: string;
+  customerKey: string;
+  customerId: string;
+  customerType: 'student' | 'teacher';
+  customerName: string;
   grade?: string;
   revenue: number;
   visits: number;
@@ -158,14 +160,20 @@ export function topCustomers(transactions: Transaction[], students: Student[], l
   const aggregates = new Map<string, CustomerRankingRow>();
 
   for (const transaction of transactions) {
-    if (!transaction.studentId) {
+    if (!transaction.customerId || !transaction.customerType) {
       continue;
     }
 
-    const student = studentById.get(transaction.studentId);
-    const existing = aggregates.get(transaction.studentId) ?? {
-      studentId: transaction.studentId,
-      studentName: student?.name ?? transaction.studentId,
+    const customerKey = `${transaction.customerType}:${transaction.customerId}`;
+    const student = transaction.customerType === 'student' ? studentById.get(transaction.customerId) : undefined;
+    const existing = aggregates.get(customerKey) ?? {
+      customerKey,
+      customerType: transaction.customerType,
+      customerId: transaction.customerId,
+      customerName:
+        transaction.customerName ??
+        student?.name ??
+        transaction.customerId,
       grade: student?.grade,
       revenue: 0,
       visits: 0,
@@ -174,7 +182,7 @@ export function topCustomers(transactions: Transaction[], students: Student[], l
 
     existing.revenue += transaction.total;
     existing.visits += 1;
-    aggregates.set(transaction.studentId, existing);
+    aggregates.set(customerKey, existing);
   }
 
   return Array.from(aggregates.values())
@@ -182,7 +190,7 @@ export function topCustomers(transactions: Transaction[], students: Student[], l
       ...row,
       avgSpendPerVisit: row.visits > 0 ? row.revenue / row.visits : 0,
     }))
-    .sort((a, b) => (b.revenue - a.revenue) || (b.visits - a.visits) || a.studentName.localeCompare(b.studentName))
+    .sort((a, b) => (b.revenue - a.revenue) || (b.visits - a.visits) || a.customerName.localeCompare(b.customerName))
     .slice(0, Math.max(0, limit));
 }
 
