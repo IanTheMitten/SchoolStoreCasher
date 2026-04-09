@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Product } from '../../App';
 
@@ -9,9 +10,21 @@ interface ProductSearchProps {
   products: Product[];
   onAddToCart: (product: Product) => void;
   searchInputRef: React.RefObject<HTMLInputElement>;
+  scannerStatus: string;
+  showConnectScanner: boolean;
+  onConnectScanner: () => void;
+  isConnectingScanner: boolean;
 }
 
-export function ProductSearch({ products, onAddToCart, searchInputRef }: ProductSearchProps) {
+export function ProductSearch({
+  products,
+  onAddToCart,
+  searchInputRef,
+  scannerStatus,
+  showConnectScanner,
+  onConnectScanner,
+  isConnectingScanner,
+}: ProductSearchProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const { formatCurrency } = useCurrency();
@@ -77,6 +90,21 @@ export function ProductSearch({ products, onAddToCart, searchInputRef }: Product
             className="pl-10 h-[56px]"
             autoFocus
           />
+        </div>
+
+        <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+          <span className="text-xs text-gray-700">{scannerStatus}</span>
+          {showConnectScanner && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={onConnectScanner}
+              disabled={isConnectingScanner}
+            >
+              {isConnectingScanner ? 'Connecting...' : 'Connect Scanner'}
+            </Button>
+          )}
         </div>
       </div>
 
