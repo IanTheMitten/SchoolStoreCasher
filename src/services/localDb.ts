@@ -158,21 +158,30 @@ export const localDb = {
     const tx = db.transaction(STORE_STUDENTS, 'readonly');
     return reqToPromise(tx.objectStore(STORE_STUDENTS).get(id)) as Promise<any>;
   },
-  createStudent: async (student: any) => {
+  createStudent: async (student: { id?: string; name: string; grade?: string; gender?: string; barcode?: string }) => {
     const db = await openDB();
     const tx = db.transaction(STORE_STUDENTS, 'readwrite');
     const store = tx.objectStore(STORE_STUDENTS);
     const id = student.id || `stu-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const toPut = { ...student, id };
+    const toPut = {
+      ...student,
+      id,
+      barcode: student.barcode?.trim() || undefined,
+    };
     store.put(toPut);
     return new Promise(resolve => { tx.oncomplete = () => resolve(toPut); });
   },
-  updateStudent: async (id: string, student: any) => {
+  updateStudent: async (id: string, student: { name?: string; grade?: string; gender?: string; barcode?: string }) => {
     const db = await openDB();
     const tx = db.transaction(STORE_STUDENTS, 'readwrite');
     const store = tx.objectStore(STORE_STUDENTS);
     const existing = await reqToPromise(store.get(id)) as any;
-    const updated = { ...existing, ...student, id };
+    const updated = {
+      ...existing,
+      ...student,
+      id,
+      barcode: student.barcode !== undefined ? student.barcode.trim() || undefined : existing?.barcode,
+    };
     store.put(updated);
     return new Promise(resolve => { tx.oncomplete = () => resolve(updated); });
   },

@@ -44,11 +44,11 @@ export const studentsAPI = {
     return localDb.getStudentById(id);
   },
 
-  create: async (student: { name: string; grade?: string; gender?: string }) => {
+  create: async (student: { name: string; grade?: string; gender?: string; barcode?: string }) => {
     return localDb.createStudent(student);
   },
 
-  update: async (id: string, student: any) => {
+  update: async (id: string, student: { name: string; grade?: string; gender?: string; barcode?: string }) => {
     return localDb.updateStudent(id, student);
   },
 

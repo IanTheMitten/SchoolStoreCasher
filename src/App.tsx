@@ -31,6 +31,7 @@ export interface Student {
   name: string;
   grade: string;
   gender?: string;
+  barcode?: string;
 }
 
 export interface CartItem {
