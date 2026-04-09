@@ -4,18 +4,20 @@ import type { Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { CANONICAL_TIME_PERIODS, getSelectedPeriodCumulativeSeries } from './timePeriodAnalytics';
+import type { StatisticSamplingOptions } from './analyticsSampling';
 
 interface TimePeriodCumulativeLineProps {
   transactions: Transaction[];
+  samplingOptions: StatisticSamplingOptions;
   selectedPeriodId: string;
 }
 
-export function TimePeriodCumulativeLine({ transactions, selectedPeriodId }: TimePeriodCumulativeLineProps) {
+export function TimePeriodCumulativeLine({ transactions, samplingOptions, selectedPeriodId }: TimePeriodCumulativeLineProps) {
   const { formatCurrency } = useCurrency();
 
-  const { points, dayCount } = useMemo(
-    () => getSelectedPeriodCumulativeSeries(transactions, selectedPeriodId),
-    [transactions, selectedPeriodId],
+  const { points, sampledDayCount } = useMemo(
+    () => getSelectedPeriodCumulativeSeries(transactions, samplingOptions, selectedPeriodId),
+    [transactions, samplingOptions, selectedPeriodId],
   );
 
   const selectedPeriodLabel =
@@ -26,7 +28,7 @@ export function TimePeriodCumulativeLine({ transactions, selectedPeriodId }: Tim
       <div className="mb-4">
         <h3 className="text-gray-900">Cumulative Revenue: {selectedPeriodLabel}</h3>
         <p className="text-sm text-gray-600 mt-1">
-          Running total across {dayCount} observed day{dayCount === 1 ? '' : 's'} in the selected range.
+          Running total starts at 0 across {sampledDayCount} sampled eligible day{sampledDayCount === 1 ? '' : 's'}.
         </p>
       </div>
       <ResponsiveContainer width="100%" height={300}>
