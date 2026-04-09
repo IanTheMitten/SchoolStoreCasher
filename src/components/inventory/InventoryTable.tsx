@@ -47,7 +47,6 @@ export function InventoryTable({
       <table className="w-full">
         <thead className="bg-gray-50 sticky top-0 z-10 border-b border-gray-200">
           <tr>
-            <th className="text-left p-3 text-gray-600 text-sm">SKU</th>
             <th className="text-left p-3 text-gray-600 text-sm">Product Name</th>
             <th className="text-left p-3 text-gray-600 text-sm">Category</th>
             <th className="text-right p-3 text-gray-600 text-sm">Unit Cost</th>
@@ -72,7 +71,6 @@ export function InventoryTable({
                   isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'
                 }`}
               >
-                <td className="p-3 text-gray-600 text-sm">{product.sku}</td>
                 <td className="p-3">
                   <div className="text-gray-900">{product.name}</div>
                   <div className="text-gray-500 text-sm truncate max-w-xs">{product.description}</div>

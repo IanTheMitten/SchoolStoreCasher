@@ -37,7 +37,6 @@ export function AddProductModal({ onAdd, onClose, categories, existingProducts =
     : defaultCategories.map((n) => ({ name: n }));
 
   const [formData, setFormData] = useState({
-    sku: '',
     name: '',
     price: '',
     unitCost: '',
@@ -50,7 +49,7 @@ export function AddProductModal({ onAdd, onClose, categories, existingProducts =
   });
 
   const handleSubmit = async () => {
-    if (!formData.sku || !formData.name || !formData.price || !formData.unitCost || !formData.stock || !formData.reorderLevel) {
+    if (!formData.name || !formData.price || !formData.unitCost || !formData.stock || !formData.reorderLevel) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -78,7 +77,6 @@ export function AddProductModal({ onAdd, onClose, categories, existingProducts =
 
     try {
       const result = await productsAPI.create({
-        sku: formData.sku,
         name: formData.name,
         price: parseFloat(formData.price),
         unit_cost: parseFloat(formData.unitCost),
@@ -92,7 +90,7 @@ export function AddProductModal({ onAdd, onClose, categories, existingProducts =
 
       const newProduct: Product = {
         id: result.id,
-        sku: result.sku || formData.sku,
+        sku: result.sku || '',
         name: result.name,
         price: result.price,
         unitCost: result.unit_cost || parseFloat(formData.unitCost),
@@ -120,16 +118,6 @@ export function AddProductModal({ onAdd, onClose, categories, existingProducts =
         </DialogHeader>
 
         <div className="grid grid-cols-2 gap-4 py-4">
-          <div>
-            <Label htmlFor="sku">SKU *</Label>
-            <Input
-              id="sku"
-              value={formData.sku}
-              onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-              placeholder="e.g., STN-001"
-            />
-          </div>
-
           <div>
             <Label htmlFor="barcode">Barcode</Label>
             <Input

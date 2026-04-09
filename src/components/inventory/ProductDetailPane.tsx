@@ -65,7 +65,6 @@ export function ProductDetailPane({
         <div className="flex items-start justify-between mb-2">
           <div className="flex-1 min-w-0">
             <h3 className="text-gray-900 truncate">{product.name}</h3>
-            <p className="text-gray-500 text-sm">{product.sku}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose}>
             <X className="size-4" />

@@ -34,8 +34,7 @@ export function InventoryPage({
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = !searchQuery || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+      product.name.toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesLowStock = !lowStockOnly || product.stock < product.reorderLevel;
     
@@ -51,9 +50,8 @@ export function InventoryPage({
   };
 
   const handleExportCSV = () => {
-    const headers = ['SKU', 'Name', 'Category', 'Unit Cost (₩)', 'Price (₩)', 'Stock', 'Reorder Level'];
+    const headers = ['Name', 'Category', 'Unit Cost (₩)', 'Price (₩)', 'Stock', 'Reorder Level'];
     const rows = products.map(p => [
-      p.sku,
       p.name,
       p.category,
       Math.round(p.unitCost).toString(),
