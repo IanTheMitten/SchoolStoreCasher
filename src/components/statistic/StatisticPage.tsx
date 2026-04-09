@@ -3,7 +3,7 @@ import type { Product, Student, Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { TimePeriodRevenueBarChart } from './TimePeriodRevenueBarChart';
 import { TimePeriodCumulativeLine } from './TimePeriodCumulativeLine';
-import { ProductAverageRevenueTable } from './ProductAverageRevenueTable';
+import { TopProductsTable } from './TopProductsTable';
 import { CANONICAL_TIME_PERIODS } from './timePeriodAnalytics';
 import { DateRangeSelector } from './DateRangeSelector';
 import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
@@ -46,7 +46,7 @@ export function StatisticPage({ transactions, products, students: _students }: S
         <Card className="p-6 flex flex-col gap-3">
           <div>
             <h2 className="text-gray-900">Statistic</h2>
-            <p className="text-sm text-gray-600 mt-1">Weekday average revenue analytics sampled from eligible transaction days.</p>
+            <p className="text-sm text-gray-600 mt-1">Weekday and product analytics from transaction data.</p>
           </div>
 
           <DateRangeSelector
@@ -74,10 +74,9 @@ export function StatisticPage({ transactions, products, students: _students }: S
           selectedPeriodId={selectedPeriodId}
         />
 
-        <ProductAverageRevenueTable
+        <TopProductsTable
           transactions={transactions}
           products={products}
-          samplingOptions={samplingOptions}
         />
       </div>
     </div>
