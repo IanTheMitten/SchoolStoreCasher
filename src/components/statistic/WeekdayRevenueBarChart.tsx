@@ -1,13 +1,22 @@
 import { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import type { TooltipProps } from 'recharts';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction } from '../../App';
-import { getDayKey, getEligibleWeekdayRevenueByDate, getSampledTransactionDates, type StatisticSamplingOptions } from './analyticsSampling';
+import type { StatisticSamplingOptions } from './analyticsSampling';
 
 interface WeekdayRevenueBarChartProps {
   transactions: Transaction[];
   samplingOptions: StatisticSamplingOptions;
+}
+
+interface WeekdayRevenueDatum {
+  weekday: string;
+  totalRevenue: number;
+  avgRevenue: number;
+  txCount: number;
+  daysObserved: number;
 }
 
 const WEEKDAY_LABELS = [
@@ -18,56 +27,54 @@ const WEEKDAY_LABELS = [
   { dayIndex: 5, label: 'Fri' },
 ];
 
-export function WeekdayRevenueBarChart({ transactions, samplingOptions }: WeekdayRevenueBarChartProps) {
+function getDayKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function WeekdayRevenueBarChart({ transactions, samplingOptions: _samplingOptions }: WeekdayRevenueBarChartProps) {
   const { formatCurrency } = useCurrency();
 
-  const sampled = useMemo(
-    () => getSampledTransactionDates(transactions, samplingOptions),
-    [transactions, samplingOptions],
-  );
-
-  const chartData = useMemo(() => {
-    const revenueByDate = getEligibleWeekdayRevenueByDate(transactions);
-
+  const chartData = useMemo<WeekdayRevenueDatum[]>(() => {
     const weekdayBuckets = WEEKDAY_LABELS.map((weekday) => ({
       weekday: weekday.label,
       totalRevenue: 0,
-      dayCount: 0,
-      avgRevenue: 0,
+      txCount: 0,
+      dayKeys: new Set<string>(),
     }));
 
-    sampled.selected.forEach((sampleDate) => {
-      const dayOfWeek = sampleDate.getDay();
+    for (const transaction of transactions) {
+      const dayOfWeek = transaction.timestamp.getDay();
       const targetBucket = weekdayBuckets[dayOfWeek - 1];
 
       if (!targetBucket) {
-        return;
+        continue;
       }
 
-      const dayRevenue = revenueByDate.get(getDayKey(sampleDate)) ?? 0;
-      if (dayRevenue <= 0) {
-        return;
-      }
+      targetBucket.totalRevenue += transaction.total;
+      targetBucket.txCount += 1;
+      targetBucket.dayKeys.add(getDayKey(transaction.timestamp));
+    }
 
-      targetBucket.totalRevenue += dayRevenue;
-      targetBucket.dayCount += 1;
+    return weekdayBuckets.map((bucket) => {
+      const daysObserved = bucket.dayKeys.size;
+
+      return {
+        weekday: bucket.weekday,
+        totalRevenue: bucket.totalRevenue,
+        avgRevenue: daysObserved > 0 ? bucket.totalRevenue / daysObserved : 0,
+        txCount: bucket.txCount,
+        daysObserved,
+      };
     });
-
-    return weekdayBuckets.map((bucket) => ({
-      ...bucket,
-      avgRevenue: bucket.dayCount > 0 ? bucket.totalRevenue / bucket.dayCount : 0,
-    }));
-  }, [sampled, transactions]);
-
-  const sampledDaysCount = sampled.selected.length;
+  }, [transactions]);
 
   return (
     <Card className="p-6">
       <div className="mb-4">
         <h3 className="text-gray-900">Average Revenue by Weekday</h3>
-        <p className="text-sm text-gray-600 mt-1">
-          Calculated from {sampledDaysCount} sampled weekday transaction day{sampledDaysCount === 1 ? '' : 's'}.
-        </p>
       </div>
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={chartData}>
@@ -75,14 +82,31 @@ export function WeekdayRevenueBarChart({ transactions, samplingOptions }: Weekda
           <XAxis dataKey="weekday" stroke="#6b7280" style={{ fontSize: '12px' }} />
           <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
           <Tooltip
-            contentStyle={{
-              backgroundColor: '#fff',
-              border: '1px solid #e5e7eb',
-              borderRadius: '8px',
-              fontSize: '12px',
+            content={({ active, payload, label }: TooltipProps<number, string>) => {
+              if (!active || !payload || payload.length === 0) {
+                return null;
+              }
+
+              const datum = payload[0].payload as WeekdayRevenueDatum;
+
+              return (
+                <div
+                  style={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    fontSize: '12px',
+                    padding: '8px 10px',
+                  }}
+                >
+                  <p style={{ fontWeight: 600, marginBottom: '4px' }}>{label}</p>
+                  <p>Total Revenue: {formatCurrency(datum.totalRevenue)}</p>
+                  <p>Avg Revenue: {formatCurrency(datum.avgRevenue)}</p>
+                  <p>Tx Count: {datum.txCount}</p>
+                  <p>Days Observed: {datum.daysObserved}</p>
+                </div>
+              );
             }}
-            formatter={(value: number) => formatCurrency(value)}
-            labelFormatter={(label) => `${label} average`}
           />
           <Bar dataKey="avgRevenue" name="Average Revenue" fill="#3b82f6" radius={[6, 6, 0, 0]} />
         </BarChart>
