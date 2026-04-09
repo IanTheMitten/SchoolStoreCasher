@@ -42,7 +42,7 @@ router.post('/', async (req, res) => {
     }
     
     const student = await withDB(async (db) => {
-      const { name, grade, gender, balance = 0 } = req.body;
+      const { name, grade, gender, barcode, balance = 0 } = req.body;
       
       // Generate ID if not provided
       const id = req.body.id || `S-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -51,12 +51,17 @@ router.post('/', async (req, res) => {
       if (db.students.find(s => s.id === id)) {
         throw new Error('Student ID already exists');
       }
+      const normalizedBarcode = typeof barcode === 'string' ? barcode.trim() : '';
+      if (normalizedBarcode && db.students.find(s => s.barcode === normalizedBarcode)) {
+        throw new Error('Student barcode already exists');
+      }
       
       const newStudent = {
         id,
         name: name.trim(),
         grade: grade || '',
         gender: gender || '',
+        barcode: normalizedBarcode || undefined,
         balance: balance || 0
       };
       
@@ -66,7 +71,7 @@ router.post('/', async (req, res) => {
     
     res.status(201).json(student);
   } catch (error) {
-    if (error.message === 'Student ID already exists') {
+    if (error.message === 'Student ID already exists' || error.message === 'Student barcode already exists') {
       return res.status(409).json({ error: error.message });
     }
     console.error('Error creating student:', error);
@@ -90,9 +95,21 @@ router.put('/:id', async (req, res) => {
       }
       
       const existing = db.students[index];
+      const normalizedBarcode = typeof req.body.barcode === 'string' ? req.body.barcode.trim() : undefined;
+
+      if (normalizedBarcode) {
+        const duplicateBarcode = db.students.find(
+          s => s.id !== req.params.id && s.barcode === normalizedBarcode
+        );
+        if (duplicateBarcode) {
+          throw new Error('Student barcode already exists');
+        }
+      }
+
       const updated = {
         ...existing,
         ...req.body,
+        ...(req.body.barcode !== undefined ? { barcode: normalizedBarcode || undefined } : {}),
         id: req.params.id // Ensure ID doesn't change
       };
       
@@ -106,6 +123,9 @@ router.put('/:id', async (req, res) => {
     
     res.json(student);
   } catch (error) {
+    if (error.message === 'Student barcode already exists') {
+      return res.status(409).json({ error: error.message });
+    }
     console.error('Error updating student:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
@@ -171,4 +191,3 @@ router.get('/:id/purchases', async (req, res) => {
 });
 
 export default router;
-

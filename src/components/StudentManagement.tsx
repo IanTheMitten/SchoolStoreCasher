@@ -37,7 +37,8 @@ export function StudentManagement({ students, onUpdateStudents }: StudentManagem
   const [formData, setFormData] = useState({
     name: '',
     grade: 'Grade 9',
-    gender: 'Male'
+    gender: 'Male',
+    barcode: '',
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [filterGrade, setFilterGrade] = useState('all');
@@ -56,14 +57,16 @@ export function StudentManagement({ students, onUpdateStudents }: StudentManagem
       setFormData({
         name: student.name,
         grade: student.grade,
-        gender: student.gender || 'Male'
+        gender: student.gender || 'Male',
+        barcode: student.barcode || '',
       });
     } else {
       setEditingStudent(null);
       setFormData({
         name: '',
         grade: 'Grade 9',
-        gender: 'Male'
+        gender: 'Male',
+        barcode: '',
       });
     }
     setIsDialogOpen(true);
@@ -87,6 +90,7 @@ export function StudentManagement({ students, onUpdateStudents }: StudentManagem
           name: formData.name,
           grade: formData.grade,
           gender: formData.gender,
+          barcode: formData.barcode.trim() || undefined,
         });
         
         const updatedStudents = students.map(s =>
@@ -102,6 +106,7 @@ export function StudentManagement({ students, onUpdateStudents }: StudentManagem
           name: formData.name,
           grade: formData.grade,
           gender: formData.gender,
+          barcode: formData.barcode.trim() || undefined,
         });
         
         onUpdateStudents([...students, newStudent as Student]);
@@ -204,6 +209,7 @@ export function StudentManagement({ students, onUpdateStudents }: StudentManagem
                 <th className="text-left p-3 text-gray-600">Name</th>
                 <th className="text-left p-3 text-gray-600">Grade</th>
                 <th className="text-left p-3 text-gray-600">Gender</th>
+                <th className="text-left p-3 text-gray-600">Barcode</th>
                 <th className="text-right p-3 text-gray-600">Actions</th>
               </tr>
             </thead>
@@ -217,6 +223,7 @@ export function StudentManagement({ students, onUpdateStudents }: StudentManagem
                     <Badge variant="outline">{student.grade}</Badge>
                   </td>
                   <td className="p-3 text-gray-600">{student.gender || '—'}</td>
+                  <td className="p-3 text-gray-600 font-mono text-xs">{student.barcode || '—'}</td>
                   <td className="p-3">
                     <div className="flex items-center justify-end gap-2">
                       <Button
@@ -266,6 +273,16 @@ export function StudentManagement({ students, onUpdateStudents }: StudentManagem
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g., John Smith"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="student-barcode">Barcode</Label>
+              <Input
+                id="student-barcode"
+                value={formData.barcode}
+                onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
+                placeholder="Scan or enter student barcode"
               />
             </div>
 

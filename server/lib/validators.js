@@ -48,6 +48,10 @@ export const validateStudent = (body) => {
   if (body.grade && typeof body.grade !== 'string') {
     errors.push('grade must be a string');
   }
+
+  if (body.barcode !== undefined && body.barcode !== null && typeof body.barcode !== 'string') {
+    errors.push('barcode must be a string');
+  }
   
   return errors;
 };
@@ -137,4 +141,3 @@ export const validateStockAdjustment = (body) => {
   
   return errors;
 };
-
