@@ -77,6 +77,33 @@ const normalizeInventoryAdjustment = (adjustment: any) => ({
   user: adjustment.user || 'system',
 });
 
+const normalizeBarcode = (barcode?: string) => barcode?.trim().toLowerCase() || '';
+
+const assertUniqueNormalizedBarcode = <
+  T extends { id?: string; barcode?: string }
+>(
+  items: T[],
+  barcode: string | undefined,
+  conflictMessage: string,
+  currentId?: string,
+) => {
+  const normalizedBarcode = normalizeBarcode(barcode);
+  if (!normalizedBarcode) {
+    return;
+  }
+
+  const hasConflict = items.some(item => {
+    if (currentId && item.id === currentId) {
+      return false;
+    }
+    return normalizeBarcode(item.barcode) === normalizedBarcode;
+  });
+
+  if (hasConflict) {
+    throw new Error(conflictMessage);
+  }
+};
+
 export const localDb = {
   init: async () => {
     await ensureDbReady();
@@ -106,8 +133,14 @@ export const localDb = {
     const db = await openDB();
     const tx = db.transaction(STORE_PRODUCTS, 'readwrite');
     const store = tx.objectStore(STORE_PRODUCTS);
+    const allProducts = await reqToPromise(store.getAll()) as any[];
+    assertUniqueNormalizedBarcode(allProducts, product.barcode, 'Product barcode already exists');
     const id = product.id || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const toPut = { ...product, id };
+    const toPut = {
+      ...product,
+      id,
+      barcode: product.barcode?.trim() || undefined,
+    };
     store.put(toPut);
     return new Promise(resolve => { tx.oncomplete = () => resolve(toPut); });
   },
@@ -115,8 +148,16 @@ export const localDb = {
     const db = await openDB();
     const tx = db.transaction(STORE_PRODUCTS, 'readwrite');
     const store = tx.objectStore(STORE_PRODUCTS);
+    const allProducts = await reqToPromise(store.getAll()) as any[];
+    const nextBarcode = product.barcode !== undefined ? product.barcode : allProducts.find(item => item.id === id)?.barcode;
+    assertUniqueNormalizedBarcode(allProducts, nextBarcode, 'Product barcode already exists', id);
     const existing = await reqToPromise(store.get(id)) as any;
-    const updated = { ...existing, ...product, id };
+    const updated = {
+      ...existing,
+      ...product,
+      id,
+      barcode: product.barcode !== undefined ? product.barcode.trim() || undefined : existing?.barcode,
+    };
     store.put(updated);
     return new Promise(resolve => { tx.oncomplete = () => resolve(updated); });
   },
@@ -162,6 +203,8 @@ export const localDb = {
     const db = await openDB();
     const tx = db.transaction(STORE_STUDENTS, 'readwrite');
     const store = tx.objectStore(STORE_STUDENTS);
+    const allStudents = await reqToPromise(store.getAll()) as any[];
+    assertUniqueNormalizedBarcode(allStudents, student.barcode, 'Student barcode already exists');
     const id = student.id || `stu-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const toPut = {
       ...student,
@@ -175,6 +218,9 @@ export const localDb = {
     const db = await openDB();
     const tx = db.transaction(STORE_STUDENTS, 'readwrite');
     const store = tx.objectStore(STORE_STUDENTS);
+    const allStudents = await reqToPromise(store.getAll()) as any[];
+    const nextBarcode = student.barcode !== undefined ? student.barcode : allStudents.find(item => item.id === id)?.barcode;
+    assertUniqueNormalizedBarcode(allStudents, nextBarcode, 'Student barcode already exists', id);
     const existing = await reqToPromise(store.get(id)) as any;
     const updated = {
       ...existing,
