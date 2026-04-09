@@ -4,72 +4,16 @@ import type { TooltipProps } from 'recharts';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction } from '../../App';
-import type { StatisticSamplingOptions } from './analyticsSampling';
+import { revenueByWeekday, type WeekdayRevenueDatum } from './aggregation';
 
 interface WeekdayRevenueBarChartProps {
   transactions: Transaction[];
-  samplingOptions: StatisticSamplingOptions;
 }
 
-interface WeekdayRevenueDatum {
-  weekday: string;
-  totalRevenue: number;
-  avgRevenue: number;
-  txCount: number;
-  daysObserved: number;
-}
-
-const WEEKDAY_LABELS = [
-  { dayIndex: 1, label: 'Mon' },
-  { dayIndex: 2, label: 'Tue' },
-  { dayIndex: 3, label: 'Wed' },
-  { dayIndex: 4, label: 'Thu' },
-  { dayIndex: 5, label: 'Fri' },
-];
-
-function getDayKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-export function WeekdayRevenueBarChart({ transactions, samplingOptions: _samplingOptions }: WeekdayRevenueBarChartProps) {
+export function WeekdayRevenueBarChart({ transactions }: WeekdayRevenueBarChartProps) {
   const { formatCurrency } = useCurrency();
 
-  const chartData = useMemo<WeekdayRevenueDatum[]>(() => {
-    const weekdayBuckets = WEEKDAY_LABELS.map((weekday) => ({
-      weekday: weekday.label,
-      totalRevenue: 0,
-      txCount: 0,
-      dayKeys: new Set<string>(),
-    }));
-
-    for (const transaction of transactions) {
-      const dayOfWeek = transaction.timestamp.getDay();
-      const targetBucket = weekdayBuckets[dayOfWeek - 1];
-
-      if (!targetBucket) {
-        continue;
-      }
-
-      targetBucket.totalRevenue += transaction.total;
-      targetBucket.txCount += 1;
-      targetBucket.dayKeys.add(getDayKey(transaction.timestamp));
-    }
-
-    return weekdayBuckets.map((bucket) => {
-      const daysObserved = bucket.dayKeys.size;
-
-      return {
-        weekday: bucket.weekday,
-        totalRevenue: bucket.totalRevenue,
-        avgRevenue: daysObserved > 0 ? bucket.totalRevenue / daysObserved : 0,
-        txCount: bucket.txCount,
-        daysObserved,
-      };
-    });
-  }, [transactions]);
+  const chartData = useMemo<WeekdayRevenueDatum[]>(() => revenueByWeekday(transactions), [transactions]);
 
   return (
     <Card className="p-6">

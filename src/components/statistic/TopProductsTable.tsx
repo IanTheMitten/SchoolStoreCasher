@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { Product, Transaction } from '../../App';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { Card } from '../ui/card';
+import { topProducts } from './aggregation';
 
 interface TopProductsTableProps {
   transactions: Transaction[];
@@ -10,15 +11,6 @@ interface TopProductsTableProps {
 
 type SecondarySortField = 'none' | 'unitsSold' | 'profit' | 'marginPct' | 'name';
 type SecondarySortDirection = 'asc' | 'desc';
-
-interface ProductAggregateRow {
-  productId: string;
-  productName: string;
-  unitsSold: number;
-  revenue: number;
-  profit: number;
-  marginPct: number;
-}
 
 export function TopProductsTable({ transactions, products }: TopProductsTableProps) {
   const { formatCurrency } = useCurrency();
@@ -34,35 +26,9 @@ export function TopProductsTable({ transactions, products }: TopProductsTablePro
   }, [products]);
 
   const rows = useMemo(() => {
-    const aggregates = new Map<string, ProductAggregateRow>();
-
-    transactions.forEach((transaction) => {
-      transaction.items.forEach((item) => {
-        const unitPrice = Number(item.product.price || 0);
-        const unitCost = Number(item.product.unitCost || 0);
-        const quantity = Number(item.quantity || 0);
-        const lineRevenue = unitPrice * quantity;
-        const lineProfit = (unitPrice - unitCost) * quantity;
-
-        const existing = aggregates.get(item.product.id) ?? {
-          productId: item.product.id,
-          productName: productNameById.get(item.product.id) ?? item.product.name,
-          unitsSold: 0,
-          revenue: 0,
-          profit: 0,
-          marginPct: 0,
-        };
-
-        existing.unitsSold += quantity;
-        existing.revenue += lineRevenue;
-        existing.profit += lineProfit;
-        aggregates.set(item.product.id, existing);
-      });
-    });
-
-    const computedRows = Array.from(aggregates.values()).map((row) => ({
+    const computedRows = topProducts(transactions).map((row) => ({
       ...row,
-      marginPct: row.revenue > 0 ? (row.profit / row.revenue) * 100 : 0,
+      productName: productNameById.get(row.productId) ?? row.productName,
     }));
 
     const secondaryMultiplier = secondarySortDirection === 'asc' ? 1 : -1;
@@ -95,7 +61,7 @@ export function TopProductsTable({ transactions, products }: TopProductsTablePro
       <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h3 className="text-gray-900">Top Products</h3>
-          <p className="text-sm text-gray-600 mt-1">Direct transaction aggregation with revenue-first ranking.</p>
+          <p className="text-sm text-gray-600 mt-1">Deterministic full-data aggregation with revenue-first ranking.</p>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-2 sm:items-end">

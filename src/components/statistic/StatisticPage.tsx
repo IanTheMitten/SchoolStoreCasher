@@ -5,9 +5,9 @@ import { TimePeriodRevenueBarChart } from './TimePeriodRevenueBarChart';
 import { TimePeriodCumulativeLine } from './TimePeriodCumulativeLine';
 import { TopProductsTable } from './TopProductsTable';
 import { CANONICAL_TIME_PERIODS } from './timePeriodAnalytics';
-import { DateRangeSelector } from './DateRangeSelector';
+import { DateRangeSelector, type StatisticDateRange } from './DateRangeSelector';
 import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
-import type { StatisticDateRange, StatisticSamplingOptions } from './analyticsSampling';
+import { filterByDateRange } from './aggregation';
 
 interface StatisticPageProps {
   transactions: Transaction[];
@@ -26,19 +26,36 @@ function parseMonthInputValue(value: string): Date {
   return new Date(year, month - 1, 1);
 }
 
+function getDateRangeBounds(range: StatisticDateRange, chosenMonthDate: Date): { start?: Date; end?: Date } {
+  if (range === 'allTime') {
+    return {};
+  }
+
+  if (range === 'thisMonth') {
+    const now = new Date();
+    return {
+      start: new Date(now.getFullYear(), now.getMonth(), 1),
+      end: new Date(now.getFullYear(), now.getMonth() + 1, 0),
+    };
+  }
+
+  return {
+    start: new Date(chosenMonthDate.getFullYear(), chosenMonthDate.getMonth(), 1),
+    end: new Date(chosenMonthDate.getFullYear(), chosenMonthDate.getMonth() + 1, 0),
+  };
+}
+
 export function StatisticPage({ transactions, products, students: _students }: StatisticPageProps) {
-  const [dateRange, setDateRange] = useState<StatisticDateRange>('thisMonth');
+  const [dateRange, setDateRange] = useState<StatisticDateRange>('allTime');
   const [chosenMonth, setChosenMonth] = useState(() => formatMonthInputValue(new Date()));
-  const [samplingSeed, setSamplingSeed] = useState('');
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(CANONICAL_TIME_PERIODS[0].id);
 
   const chosenMonthDate = useMemo(() => parseMonthInputValue(chosenMonth), [chosenMonth]);
-
-  const samplingOptions = useMemo<StatisticSamplingOptions>(() => ({
-    dateRange,
-    chosenMonthDate,
-    seed: samplingSeed || undefined,
-  }), [dateRange, chosenMonthDate, samplingSeed]);
+  const { start, end } = useMemo(() => getDateRangeBounds(dateRange, chosenMonthDate), [dateRange, chosenMonthDate]);
+  const filteredTransactions = useMemo(
+    () => filterByDateRange(transactions, start, end),
+    [transactions, start, end],
+  );
 
   return (
     <div className="h-[calc(100vh-70px)] overflow-auto">
@@ -54,28 +71,24 @@ export function StatisticPage({ transactions, products, students: _students }: S
             onDateRangeChange={setDateRange}
             chosenMonth={chosenMonth}
             onChosenMonthChange={setChosenMonth}
-            seed={samplingSeed}
-            onSeedChange={setSamplingSeed}
           />
         </Card>
 
-        <WeekdayRevenueBarChart transactions={transactions} samplingOptions={samplingOptions} />
+        <WeekdayRevenueBarChart transactions={filteredTransactions} />
 
         <TimePeriodRevenueBarChart
-          transactions={transactions}
-          samplingOptions={samplingOptions}
+          transactions={filteredTransactions}
           selectedPeriodId={selectedPeriodId}
           onSelectPeriod={setSelectedPeriodId}
         />
 
         <TimePeriodCumulativeLine
-          transactions={transactions}
-          samplingOptions={samplingOptions}
+          transactions={filteredTransactions}
           selectedPeriodId={selectedPeriodId}
         />
 
         <TopProductsTable
-          transactions={transactions}
+          transactions={filteredTransactions}
           products={products}
         />
       </div>
