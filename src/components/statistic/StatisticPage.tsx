@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import type { Product, Transaction } from '../../App';
+import type { Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { TimePeriodRevenueBarChart } from './TimePeriodRevenueBarChart';
 import { TimePeriodCumulativeLine } from './TimePeriodCumulativeLine';
-import { ProductAverageRevenueTable } from './ProductAverageRevenueTable';
+import { TopProductsTable } from './TopProductsTable';
 import { CANONICAL_TIME_PERIODS } from './timePeriodAnalytics';
 import { DateRangeSelector } from './DateRangeSelector';
 import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
@@ -11,7 +11,6 @@ import type { StatisticDateRange, StatisticSamplingOptions } from './analyticsSa
 
 interface StatisticPageProps {
   transactions: Transaction[];
-  products: Product[];
 }
 
 function formatMonthInputValue(date: Date): string {
@@ -25,7 +24,7 @@ function parseMonthInputValue(value: string): Date {
   return new Date(year, month - 1, 1);
 }
 
-export function StatisticPage({ transactions, products }: StatisticPageProps) {
+export function StatisticPage({ transactions }: StatisticPageProps) {
   const [dateRange, setDateRange] = useState<StatisticDateRange>('thisMonth');
   const [chosenMonth, setChosenMonth] = useState(() => formatMonthInputValue(new Date()));
   const [samplingSeed, setSamplingSeed] = useState('');
@@ -73,9 +72,8 @@ export function StatisticPage({ transactions, products }: StatisticPageProps) {
           selectedPeriodId={selectedPeriodId}
         />
 
-        <ProductAverageRevenueTable
+        <TopProductsTable
           transactions={transactions}
-          products={products}
           samplingOptions={samplingOptions}
         />
       </div>
