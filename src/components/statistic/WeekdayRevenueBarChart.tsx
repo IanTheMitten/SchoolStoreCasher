@@ -4,6 +4,7 @@ import type { TooltipProps } from 'recharts';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction } from '../../App';
+// Shared weekday aggregation logic lives in ../analytics/sharedAggregation (consumed via ./aggregation).
 import { revenueByWeekday, type WeekdayRevenueDatum } from './aggregation';
 
 interface WeekdayRevenueBarChartProps {
