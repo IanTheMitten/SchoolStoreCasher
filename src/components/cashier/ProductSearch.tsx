@@ -4,6 +4,7 @@ import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Product } from '../../App';
+import { toast } from 'sonner';
 
 interface ProductSearchProps {
   products: Product[];
@@ -14,6 +15,8 @@ interface ProductSearchProps {
 export function ProductSearch({ products, onAddToCart, searchInputRef }: ProductSearchProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [keyTimestamps, setKeyTimestamps] = useState<number[]>([]);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const { formatCurrency } = useCurrency();
 
   const filteredProducts = useMemo(() => {
@@ -62,6 +65,60 @@ export function ProductSearch({ products, onAddToCart, searchInputRef }: Product
     return { label: `${stock} left`, className: 'bg-green-100 text-green-800 border-green-200' };
   };
 
+  const handleSearchInputChange = (value: string) => {
+    setSearchQuery(value);
+    if (searchError) {
+      setSearchError(null);
+    }
+  };
+
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    const now = Date.now();
+    const isSingleCharacterKey = event.key.length === 1;
+
+    if (isSingleCharacterKey) {
+      setKeyTimestamps((prev) => [...prev.slice(-31), now]);
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      const query = searchQuery.trim();
+      const recentKeys = keyTimestamps.filter((timestamp) => now - timestamp <= 1000);
+      const burstIntervals = recentKeys.slice(1).map((timestamp, index) => timestamp - recentKeys[index]);
+      const averageInterval = burstIntervals.length
+        ? burstIntervals.reduce((sum, interval) => sum + interval, 0) / burstIntervals.length
+        : Infinity;
+      const looksLikeScannerBurst = recentKeys.length >= 6 && averageInterval <= 35;
+
+      if (!looksLikeScannerBurst || !query) {
+        return;
+      }
+
+      event.preventDefault();
+
+      const exactBarcodeMatches = products.filter((product) => (product.barcode || '').trim() === query);
+
+      if (exactBarcodeMatches.length === 1) {
+        onAddToCart(exactBarcodeMatches[0]);
+        setSearchQuery('');
+        setSearchError(null);
+        setKeyTimestamps([]);
+        return;
+      }
+
+      const errorMessage = exactBarcodeMatches.length > 1
+        ? 'Multiple products share this barcode. Please review barcode setup.'
+        : 'No product matched this barcode. Please check and try again.';
+      setSearchError(errorMessage);
+      toast.error(errorMessage);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      setKeyTimestamps([]);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Search Bar */}
@@ -71,13 +128,17 @@ export function ProductSearch({ products, onAddToCart, searchInputRef }: Product
           <Input
             ref={searchInputRef}
             type="text"
-            placeholder="Search by name or scan barcode..."
+            placeholder="Scan barcode here or type manually."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 h-[56px]"
+            onChange={(e) => handleSearchInputChange(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            className={`pl-10 h-[56px] ${searchError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
             autoFocus
           />
         </div>
+        {searchError && (
+          <p className="text-sm text-red-600 mt-2">{searchError}</p>
+        )}
       </div>
 
       {/* Category + Products split layout */}

@@ -148,6 +148,7 @@ export function InventoryPage({
           onAdd={handleAddProduct}
           onClose={() => setShowAddModal(false)}
           categories={categories.length ? categories : productCategories.map((c) => ({ id: `cat-${c}`, name: c }))}
+          existingProducts={products}
         />
       )}
 

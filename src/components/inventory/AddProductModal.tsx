@@ -20,11 +20,12 @@ interface AddProductModalProps {
   onAdd: (product: Product) => void;
   onClose: () => void;
   categories?: { id?: string; name: string }[] | string[];
+  existingProducts?: Product[];
 }
 
 const defaultCategories = ['Stationery', 'Uniform', 'Electronics', 'Art', 'Accessories'];
 
-export function AddProductModal({ onAdd, onClose, categories }: AddProductModalProps) {
+export function AddProductModal({ onAdd, onClose, categories, existingProducts = [] }: AddProductModalProps) {
   const resolvedCategories = (categories && categories.length)
     ? categories.map((c: any) => (typeof c === 'string' ? { name: c } : { name: c.name }))
     : defaultCategories.map((n) => ({ name: n }));
@@ -41,11 +42,68 @@ export function AddProductModal({ onAdd, onClose, categories }: AddProductModalP
     supplier: '',
     barcode: ''
   });
+  const [barcodeError, setBarcodeError] = useState<string | null>(null);
+
+  const configuredCharsetPattern = (import.meta.env.VITE_BARCODE_CHARSET_REGEX || '').trim();
+  const allowedBarcodePattern = configuredCharsetPattern ? new RegExp(configuredCharsetPattern) : /^[0-9]+$/;
+  const sanitizeBarcodeInput = (value: string) => {
+    if (!value) return '';
+    return Array.from(value).filter((char) => allowedBarcodePattern.test(char)).join('');
+  };
+  const configuredAllowedLengths = (import.meta.env.VITE_BARCODE_ALLOWED_LENGTHS || '')
+    .split(',')
+    .map((item) => parseInt(item.trim(), 10))
+    .filter((value) => !Number.isNaN(value));
+  const enforceBarcodeLength = import.meta.env.VITE_BARCODE_ENFORCE_LENGTH === 'true';
+  const allowedBarcodeLengths = configuredAllowedLengths.length ? configuredAllowedLengths : [8, 13];
+
+  const handleBarcodeChange = (nextValue: string) => {
+    const sanitizedValue = sanitizeBarcodeInput(nextValue.trim());
+    setFormData({ ...formData, barcode: sanitizedValue });
+
+    if (!nextValue) {
+      setBarcodeError(null);
+      return;
+    }
+
+    if (sanitizedValue !== nextValue.trim()) {
+      setBarcodeError('Barcode can only contain digits (or configured barcode characters).');
+      return;
+    }
+
+    if (enforceBarcodeLength && sanitizedValue && !allowedBarcodeLengths.includes(sanitizedValue.length)) {
+      setBarcodeError(`Barcode length must be ${allowedBarcodeLengths.join(' or ')} characters.`);
+      return;
+    }
+
+    setBarcodeError(null);
+  };
 
   const handleSubmit = async () => {
     if (!formData.sku || !formData.name || !formData.price || !formData.unitCost || !formData.stock || !formData.reorderLevel) {
       toast.error('Please fill in all required fields');
       return;
+    }
+
+    const trimmedBarcode = formData.barcode.trim();
+    if (trimmedBarcode) {
+      if (!allowedBarcodePattern.test(trimmedBarcode)) {
+        toast.error('Barcode contains invalid characters');
+        return;
+      }
+
+      if (enforceBarcodeLength && !allowedBarcodeLengths.includes(trimmedBarcode.length)) {
+        toast.error(`Barcode must be ${allowedBarcodeLengths.join(' or ')} characters long`);
+        return;
+      }
+
+      const duplicateBarcode = existingProducts.some(
+        (product) => (product.barcode || '').trim() === trimmedBarcode
+      );
+      if (duplicateBarcode) {
+        toast.error('This barcode is already assigned to another product');
+        return;
+      }
     }
 
     try {
@@ -59,7 +117,7 @@ export function AddProductModal({ onAdd, onClose, categories }: AddProductModalP
         stock: parseInt(formData.stock),
         reorderLevel: parseInt(formData.reorderLevel),
         supplier: formData.supplier || undefined,
-        barcode: formData.barcode || undefined
+        barcode: trimmedBarcode || undefined
       });
 
       const newProduct: Product = {
@@ -80,6 +138,10 @@ export function AddProductModal({ onAdd, onClose, categories }: AddProductModalP
       toast.success('Product added successfully');
     } catch (error: any) {
       console.error('Error adding product:', error);
+      if (trimmedBarcode && String(error?.message || '').toLowerCase().includes('barcode')) {
+        toast.error('Barcode already exists. Please use a unique barcode.');
+        return;
+      }
       toast.error(error.message || 'Failed to add product');
     }
   };
@@ -107,9 +169,15 @@ export function AddProductModal({ onAdd, onClose, categories }: AddProductModalP
             <Input
               id="barcode"
               value={formData.barcode}
-              onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-              placeholder="Optional"
+              onChange={(e) => handleBarcodeChange(e.target.value)}
+              placeholder="Scan barcode here or type manually."
+              className={barcodeError ? 'border-red-500 focus-visible:ring-red-500' : ''}
             />
+            <p className={`text-xs mt-1 ${barcodeError ? 'text-red-600' : 'text-gray-500'}`}>
+              {barcodeError || `Use digits${configuredCharsetPattern ? ' or your configured barcode charset' : ''}. ${
+                enforceBarcodeLength ? `Length: ${allowedBarcodeLengths.join(' or ')} characters.` : 'Length checks are optional.'
+              }`}
+            </p>
           </div>
 
           <div className="col-span-2">
