@@ -91,6 +91,11 @@ export const detectScannerCapability = async (): Promise<ScannerCapability> => {
   }
 
   const hasScannerApiAccess = hid || serial;
+  const message = hasScannerApiAccess
+    ? 'Scanner APIs available; connect required'
+    : keyboardWedge
+      ? 'Scanner APIs unavailable; keyboard wedge ready'
+      : 'No scanner APIs available; manual typing mode';
 
   return {
     mode,
@@ -102,9 +107,7 @@ export const detectScannerCapability = async (): Promise<ScannerCapability> => {
       usb,
     },
     needsConnection: hid || serial,
-    message: hasScannerApiAccess
-      ? 'Scanner APIs available (keyboard wedge fallback active)'
-      : 'No scanner API access; manual typing mode',
+    message,
   };
 };
 

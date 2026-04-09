@@ -193,6 +193,14 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
     searchInputRef.current?.focus();
   };
 
+  const scannerApiStatus = scannerCapability?.message ?? 'Checking scanner support...';
+  const scannerConnectionStatus =
+    scannerMode === 'hid' || scannerMode === 'serial'
+      ? `Connected (${scannerMode.toUpperCase()} mode)`
+      : scannerCapability?.needsConnection
+        ? 'Not connected'
+        : 'No direct connection needed';
+
   return (
     <div className="flex h-[calc(100vh-70px)] min-h-0">
       {/* Left Side - Product Search (65%) */}
@@ -201,11 +209,7 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
           products={products}
           onAddToCart={handleAddToCart}
           searchInputRef={searchInputRef}
-          scannerStatus={
-            scannerMode === 'hid' || scannerMode === 'serial'
-              ? `Scanner connected (${scannerMode.toUpperCase()} mode)`
-              : scannerCapability?.message ?? 'Checking scanner support...'
-          }
+          scannerStatus={`${scannerApiStatus}; ${scannerConnectionStatus}`}
           showConnectScanner={
             Boolean(scannerCapability?.needsConnection) &&
             scannerMode !== 'hid' &&
