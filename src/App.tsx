@@ -647,6 +647,7 @@ export default function App() {
         <StatisticPage
           transactions={transactions}
           products={products}
+          students={students}
         />
       )}
       
