@@ -1,4 +1,5 @@
 import type { Transaction } from '../../App';
+import { getDayKey, getWeekKey, parseDayKey, getWeekdayRevenueByDate } from '../analytics/sharedAggregation';
 
 export type StatisticDateRange = 'thisMonth' | 'chosenMonth' | 'sample4Weeks' | 'sample30Days';
 
@@ -10,35 +11,6 @@ export interface StatisticSamplingOptions {
 
 export interface SampledTransactionDates {
   selected: Date[];
-}
-
-const WEEKDAY_START = 1;
-const WEEKDAY_END = 5;
-
-function toDayKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
-export function parseDayKey(dayKey: string): Date {
-  const [year, month, day] = dayKey.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}
-
-function isWeekday(date: Date): boolean {
-  const day = date.getDay();
-  return day >= WEEKDAY_START && day <= WEEKDAY_END;
-}
-
-function getWeekKey(date: Date): string {
-  const weekAnchor = new Date(date);
-  weekAnchor.setHours(0, 0, 0, 0);
-  const day = weekAnchor.getDay();
-  const diff = day === 0 ? -6 : 1 - day;
-  weekAnchor.setDate(weekAnchor.getDate() + diff);
-  return toDayKey(weekAnchor);
 }
 
 function hashSeed(seed: string): number {
@@ -76,25 +48,7 @@ function pickSample<T>(values: T[], count: number, random: () => number): T[] {
 }
 
 export function getEligibleWeekdayRevenueByDate(transactions: Transaction[]): Map<string, number> {
-  const revenueByDate = new Map<string, number>();
-
-  for (const transaction of transactions) {
-    if (!isWeekday(transaction.timestamp)) {
-      continue;
-    }
-
-    const dayKey = toDayKey(transaction.timestamp);
-    const runningTotal = revenueByDate.get(dayKey) ?? 0;
-    revenueByDate.set(dayKey, runningTotal + transaction.total);
-  }
-
-  for (const [dayKey, total] of revenueByDate.entries()) {
-    if (total <= 0) {
-      revenueByDate.delete(dayKey);
-    }
-  }
-
-  return revenueByDate;
+  return getWeekdayRevenueByDate(transactions);
 }
 
 export function getSampledTransactionDates(
@@ -149,6 +103,4 @@ export function getSampledTransactionDates(
   };
 }
 
-export function getDayKey(date: Date): string {
-  return toDayKey(date);
-}
+export { getDayKey, parseDayKey };

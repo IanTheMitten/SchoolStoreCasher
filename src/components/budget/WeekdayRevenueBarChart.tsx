@@ -3,26 +3,16 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction } from '../../App';
-import { getSampledTransactionDates, getWeekdayRevenueByDate } from './analyticsSampling';
+import {
+  // Shared weekday aggregation/date helpers live in analytics/sharedAggregation to keep budget/statistic charts aligned.
+  buildWeekdayAverageRevenueChartData,
+  getWeekdayRevenueByDate,
+} from '../analytics/sharedAggregation';
+import { getSampledTransactionDates } from './analyticsSampling';
 
 interface WeekdayRevenueBarChartProps {
   transactions: Transaction[];
   chosenMonthDate: Date;
-}
-
-const WEEKDAY_LABELS = [
-  { dayIndex: 1, label: 'Mon' },
-  { dayIndex: 2, label: 'Tue' },
-  { dayIndex: 3, label: 'Wed' },
-  { dayIndex: 4, label: 'Thu' },
-  { dayIndex: 5, label: 'Fri' },
-];
-
-function getDayKey(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
 }
 
 export function WeekdayRevenueBarChart({ transactions, chosenMonthDate }: WeekdayRevenueBarChartProps) {
@@ -32,35 +22,7 @@ export function WeekdayRevenueBarChart({ transactions, chosenMonthDate }: Weekda
 
   const chartData = useMemo(() => {
     const revenueByDate = getWeekdayRevenueByDate(transactions);
-
-    const weekdayBuckets = WEEKDAY_LABELS.map((weekday) => ({
-      weekday: weekday.label,
-      totalRevenue: 0,
-      dayCount: 0,
-      avgRevenue: 0,
-    }));
-
-    sampled.combined.forEach((sampleDate) => {
-      const dayOfWeek = sampleDate.getDay();
-      const targetBucket = weekdayBuckets[dayOfWeek - 1];
-
-      if (!targetBucket) {
-        return;
-      }
-
-      const dayRevenue = revenueByDate.get(getDayKey(sampleDate)) ?? 0;
-      if (dayRevenue <= 0) {
-        return;
-      }
-
-      targetBucket.totalRevenue += dayRevenue;
-      targetBucket.dayCount += 1;
-    });
-
-    return weekdayBuckets.map((bucket) => ({
-      ...bucket,
-      avgRevenue: bucket.dayCount > 0 ? bucket.totalRevenue / bucket.dayCount : 0,
-    }));
+    return buildWeekdayAverageRevenueChartData(sampled.combined, revenueByDate);
   }, [sampled, transactions]);
 
   const sampledDaysCount = sampled.combined.length;
