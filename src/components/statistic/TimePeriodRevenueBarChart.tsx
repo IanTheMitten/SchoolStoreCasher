@@ -3,32 +3,22 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import type { Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
-import { getTimePeriodRevenueData } from './timePeriodAnalytics';
-import { getDayKey, getSampledTransactionDates, type StatisticSamplingOptions } from './analyticsSampling';
+import { revenueByTimePeriod } from './aggregation';
 
 interface TimePeriodRevenueBarChartProps {
   transactions: Transaction[];
-  samplingOptions: StatisticSamplingOptions;
   selectedPeriodId: string | null;
   onSelectPeriod: (periodId: string) => void;
 }
 
 export function TimePeriodRevenueBarChart({
   transactions,
-  samplingOptions,
   selectedPeriodId,
   onSelectPeriod,
 }: TimePeriodRevenueBarChartProps) {
   const { formatCurrency } = useCurrency();
 
-  const filteredTransactions = useMemo(() => {
-    const sampled = getSampledTransactionDates(transactions, samplingOptions);
-    const sampledDaySet = new Set(sampled.selected.map((date) => getDayKey(date)));
-
-    return transactions.filter((transaction) => sampledDaySet.has(getDayKey(transaction.timestamp)));
-  }, [transactions, samplingOptions]);
-
-  const data = useMemo(() => getTimePeriodRevenueData(filteredTransactions), [filteredTransactions]);
+  const data = useMemo(() => revenueByTimePeriod(transactions), [transactions]);
   const highestRevenuePeriodId = useMemo(
     () => data.reduce((highest, current) => (current.totalRevenue > highest.totalRevenue ? current : highest), data[0]).periodId,
     [data],
@@ -67,7 +57,7 @@ export function TimePeriodRevenueBarChart({
               borderRadius: '8px',
               fontSize: '12px',
             }}
-            formatter={(value: number, name: string, item) => {
+            formatter={(value: number, _name: string, item) => {
               if (item?.dataKey === 'totalRevenue') {
                 return [formatCurrency(value), 'Revenue'];
               }

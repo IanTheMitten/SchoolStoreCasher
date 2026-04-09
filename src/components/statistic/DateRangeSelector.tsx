@@ -1,23 +1,21 @@
-import { Calendar as CalendarIcon, Shuffle } from 'lucide-react';
+import { Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Label } from '../ui/label';
-import type { StatisticDateRange } from './analyticsSampling';
+
+export type StatisticDateRange = 'allTime' | 'thisMonth' | 'chosenMonth';
 
 interface DateRangeSelectorProps {
   dateRange: StatisticDateRange;
   onDateRangeChange: (range: StatisticDateRange) => void;
   chosenMonth: string;
   onChosenMonthChange: (value: string) => void;
-  seed: string;
-  onSeedChange: (value: string) => void;
 }
 
 const ranges: { value: StatisticDateRange; label: string }[] = [
+  { value: 'allTime', label: 'All Time' },
   { value: 'thisMonth', label: 'This Month' },
   { value: 'chosenMonth', label: 'Chosen Month' },
-  { value: 'sample4Weeks', label: 'Sample 4 Weeks' },
-  { value: 'sample30Days', label: 'Sample 30 Days' },
 ];
 
 export function DateRangeSelector({
@@ -25,11 +23,8 @@ export function DateRangeSelector({
   onDateRangeChange,
   chosenMonth,
   onChosenMonthChange,
-  seed,
-  onSeedChange,
 }: DateRangeSelectorProps) {
   const showMonthInput = dateRange === 'chosenMonth';
-  const showSeedInput = dateRange === 'sample4Weeks' || dateRange === 'sample30Days';
 
   return (
     <div className="space-y-4">
@@ -47,38 +42,17 @@ export function DateRangeSelector({
         ))}
       </div>
 
-      {(showMonthInput || showSeedInput) && (
+      {showMonthInput && (
         <Card className="p-4 max-w-2xl mx-auto">
-          <div className="grid gap-4 sm:grid-cols-2">
-            {showMonthInput && (
-              <div className="space-y-2">
-                <Label htmlFor="statistic-month">Chosen month</Label>
-                <input
-                  id="statistic-month"
-                  type="month"
-                  value={chosenMonth}
-                  onChange={(event) => onChosenMonthChange(event.target.value)}
-                  className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900"
-                />
-              </div>
-            )}
-
-            {showSeedInput && (
-              <div className="space-y-2">
-                <Label htmlFor="statistic-seed" className="inline-flex items-center gap-2">
-                  <Shuffle className="size-4 text-gray-500" />
-                  Sampling seed
-                </Label>
-                <input
-                  id="statistic-seed"
-                  type="text"
-                  value={seed}
-                  onChange={(event) => onSeedChange(event.target.value)}
-                  placeholder="e.g. spring-2026"
-                  className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900"
-                />
-              </div>
-            )}
+          <div className="space-y-2">
+            <Label htmlFor="statistic-month">Chosen month</Label>
+            <input
+              id="statistic-month"
+              type="month"
+              value={chosenMonth}
+              onChange={(event) => onChosenMonthChange(event.target.value)}
+              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900"
+            />
           </div>
         </Card>
       )}
