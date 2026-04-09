@@ -138,7 +138,9 @@ export function CashPaymentModal({
       paymentMethod: 'cash',
       cashReceived: receivedRounded,
       change: roundMoney(received - total),
-      studentId: selectedCustomer.id
+      customerType: selectedCustomer.type,
+      customerId: selectedCustomer.id,
+      customerName: selectedCustomer.name,
     };
 
     onComplete(transaction);

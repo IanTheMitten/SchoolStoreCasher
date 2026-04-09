@@ -36,33 +36,33 @@ export function GradesPage({ transactions, students, teachers, onCreateTeacher, 
     const gradeStudents = students.filter(s => s.grade === grade);
     const gradeStudentIds = gradeStudents.map(s => s.id);
     return transactions
-      .filter(tx => tx.studentId && gradeStudentIds.includes(tx.studentId))
+      .filter(tx => tx.customerType === 'student' && tx.customerId && gradeStudentIds.includes(tx.customerId))
       .reduce((sum, tx) => sum + tx.total, 0);
   };
 
   const getTeacherSpending = (teacherId: string) => {
     return transactions
-      .filter(tx => tx.studentId === teacherId)
+      .filter(tx => tx.customerType === 'teacher' && tx.customerId === teacherId)
       .reduce((sum, tx) => sum + tx.total, 0);
   };
 
   // Calculate spending by student
   const getStudentSpending = (studentId: string) => {
     return transactions
-      .filter(tx => tx.studentId === studentId)
+      .filter(tx => tx.customerType === 'student' && tx.customerId === studentId)
       .reduce((sum, tx) => sum + tx.total, 0);
   };
 
   // Get student transactions
   const getStudentTransactions = (studentId: string) => {
     return transactions
-      .filter(tx => tx.studentId === studentId)
+      .filter(tx => tx.customerType === 'student' && tx.customerId === studentId)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   };
 
   const getTeacherTransactions = (teacherId: string) => {
     return transactions
-      .filter(tx => tx.studentId === teacherId)
+      .filter(tx => tx.customerType === 'teacher' && tx.customerId === teacherId)
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
   };
 
@@ -436,4 +436,3 @@ export function GradesPage({ transactions, students, teachers, onCreateTeacher, 
 
   return null;
 }
-

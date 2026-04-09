@@ -47,7 +47,9 @@ export interface Transaction {
   tax: number;
   total: number;
   paymentMethod: 'cash' | 'card';
-  studentId?: string;
+  customerType?: 'student' | 'teacher';
+  customerId?: string;
+  customerName?: string;
   cashReceived?: number;
   change?: number;
 }
@@ -100,6 +102,16 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const lastActivityAtRef = useRef(Date.now());
+
+  const normalizeTransactionCustomer = useCallback((transaction: any) => {
+    const customerId = transaction.customerId ?? transaction.studentId ?? undefined;
+    const customerType = transaction.customerType ?? (customerId ? 'student' : undefined);
+    return {
+      customerType,
+      customerId,
+      customerName: transaction.customerName ?? transaction.studentName ?? undefined,
+    } as Pick<Transaction, 'customerType' | 'customerId' | 'customerName'>;
+  }, []);
 
   // Check saved auth on mount
   useEffect(() => {
@@ -214,6 +226,7 @@ export default function App() {
         setTransactions((transactionsData as any[]).map(tx => ({
           ...tx,
           timestamp: new Date(tx.timestamp),
+          ...normalizeTransactionCustomer(tx),
           items: (tx.items || []).map((item: any) => {
             const catalogProduct = productById.get(item.productId);
 
@@ -258,18 +271,23 @@ export default function App() {
     };
 
     fetchData();
-  }, []);
+  }, [normalizeTransactionCustomer]);
 
   const handleAddTransaction = async (transaction: Transaction) => {
     try {
-      if (!transaction.studentId) {
+      if (!transaction.customerType || !transaction.customerId) {
         toast.error('Please associate the sale with a customer before completing the transaction.');
         return;
       }
       // Prepare sale data for API
       const saleData = {
-        studentId: transaction.studentId || null,
-        studentName: transaction.studentId ? students.find((s: Student) => s.id === transaction.studentId)?.name || null : null,
+        customerType: transaction.customerType,
+        customerId: transaction.customerId,
+        customerName:
+          transaction.customerName ||
+          (transaction.customerType === 'student'
+            ? students.find((s: Student) => s.id === transaction.customerId)?.name || null
+            : teachers.find((t: any) => t.id === transaction.customerId)?.name || null),
         items: transaction.items.map(item => ({
           productId: item.product.id,
           quantity: item.quantity,
@@ -308,7 +326,7 @@ export default function App() {
           tax: 0,
           total: result.transaction.total,
           paymentMethod: result.transaction.paymentMethod as any,
-          studentId: result.transaction.studentId || undefined,
+          ...normalizeTransactionCustomer(result.transaction),
         };
 
         setTransactions((prev: Transaction[]) => [newTransaction, ...prev]);

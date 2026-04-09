@@ -77,6 +77,17 @@ const normalizeInventoryAdjustment = (adjustment: any) => ({
   user: adjustment.user || 'system',
 });
 
+const normalizeTransactionCustomer = (transaction: any) => {
+  const customerId = transaction.customerId ?? transaction.studentId ?? null;
+  const customerType = transaction.customerType ?? (customerId ? 'student' : null);
+  return {
+    ...transaction,
+    customerId,
+    customerType,
+    customerName: transaction.customerName ?? transaction.studentName ?? null,
+  };
+};
+
 const normalizeBarcode = (barcode?: string) => barcode?.trim().toLowerCase() || '';
 
 const assertUniqueNormalizedBarcode = <
@@ -241,7 +252,9 @@ export const localDb = {
     const db = await openDB();
     const tx = db.transaction(STORE_TRANSACTIONS, 'readonly');
     const all = await reqToPromise(tx.objectStore(STORE_TRANSACTIONS).getAll()) as any[];
-    return all.filter(t => t.studentId === id || t.studentId === String(id));
+    return all
+      .map(normalizeTransactionCustomer)
+      .filter(t => t.customerType === 'student' && (t.customerId === id || t.customerId === String(id)));
   },
 
   getAllTeachers: async () => {
@@ -346,7 +359,9 @@ export const localDb = {
       items: sale.items || [],
       total,
       paymentMethod: sale.paymentMethod,
-      studentId: sale.studentId || null,
+      customerType: sale.customerType || (sale.customerId ? 'student' : null),
+      customerId: sale.customerId ?? sale.studentId ?? null,
+      customerName: sale.customerName ?? sale.studentName ?? null,
     };
 
     transStore.put(transaction);
@@ -355,11 +370,13 @@ export const localDb = {
   getAllTransactions: async (filters?: any) => {
     const db = await openDB();
     const tx = db.transaction(STORE_TRANSACTIONS, 'readonly');
-    const all = await reqToPromise(tx.objectStore(STORE_TRANSACTIONS).getAll()) as any[];
+    const all = (await reqToPromise(tx.objectStore(STORE_TRANSACTIONS).getAll()) as any[]).map(normalizeTransactionCustomer);
     if (!filters) return all;
 
     let res = all;
-    if (filters.studentId) res = res.filter(r => r.studentId === filters.studentId);
+    if (filters.customerType) res = res.filter(r => r.customerType === filters.customerType);
+    if (filters.customerId) res = res.filter(r => r.customerId === filters.customerId);
+    if (filters.studentId) res = res.filter(r => r.customerType === 'student' && r.customerId === filters.studentId);
     if (filters.start) res = res.filter(r => new Date(r.timestamp) >= new Date(filters.start));
     if (filters.end) res = res.filter(r => new Date(r.timestamp) <= new Date(filters.end));
     return res;

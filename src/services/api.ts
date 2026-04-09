@@ -64,8 +64,9 @@ export const studentsAPI = {
 // Sales/Transactions API
 export const salesAPI = {
   create: async (sale: {
-    studentId?: string | null;
-    studentName?: string | null;
+    customerType?: 'student' | 'teacher' | null;
+    customerId?: string | null;
+    customerName?: string | null;
     items: Array<{ productId: string; quantity: number; unitPrice?: number }>;
     paymentMethod: 'cash' | 'card';
     timestamp?: string;
@@ -73,7 +74,7 @@ export const salesAPI = {
     return localDb.createTransaction(sale);
   },
   
-  getAll: async (filters?: { studentId?: string; start?: string; end?: string }) => {
+  getAll: async (filters?: { customerType?: 'student' | 'teacher'; customerId?: string; studentId?: string; start?: string; end?: string }) => {
     return localDb.getAllTransactions(filters as any);
   },
 };

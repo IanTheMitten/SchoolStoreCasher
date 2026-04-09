@@ -92,27 +92,31 @@ export function TransactionsTable({ transactions, students = [], teachers = [] }
                     <td className="p-3 text-gray-600">{tx.id}</td>
                     <td className="p-3 text-gray-900">{formatDateTime(tx.timestamp)}</td>
                     <td className="p-3">
-                      {tx.studentId ? (
+                      {tx.customerId ? (
                         (() => {
-                          const student = students.find(s => s.id === tx.studentId);
-                          if (student) {
+                          const isStudent = tx.customerType !== 'teacher';
+                          if (isStudent) {
+                            const student = students.find(s => s.id === tx.customerId);
+                            if (student) {
+                              return (
+                                <div>
+                                  <div className="text-gray-900 text-sm">{student.name}</div>
+                                  <div className="text-gray-500 text-xs">{student.grade}</div>
+                                </div>
+                              );
+                            }
+                          }
+
+                          const teacher = teachers.find(t => t.id === tx.customerId);
+                          if (teacher) {
                             return (
                               <div>
-                                <div className="text-gray-900 text-sm">{student.name}</div>
-                                <div className="text-gray-500 text-xs">{student.grade}</div>
+                                <div className="text-gray-900 text-sm">{teacher.name}</div>
+                                <div className="text-gray-500 text-xs">Teacher</div>
                               </div>
                             );
                           }
-
-                          const teacher = teachers.find(t => t.id === tx.studentId);
-                          return teacher ? (
-                            <div>
-                              <div className="text-gray-900 text-sm">{teacher.name}</div>
-                              <div className="text-gray-500 text-xs">Teacher</div>
-                            </div>
-                          ) : (
-                            <span className="text-gray-500 text-sm">Customer ID: {tx.studentId}</span>
-                          );
+                          return <span className="text-gray-500 text-sm">Customer ID: {tx.customerId}</span>;
                         })()
                       ) : (
                         <span className="text-gray-400 text-sm">—</span>
