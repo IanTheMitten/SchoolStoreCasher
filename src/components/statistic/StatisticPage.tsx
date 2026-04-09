@@ -6,7 +6,11 @@ import { TimePeriodRevenueBarChart } from './TimePeriodRevenueBarChart';
 import { TimePeriodCumulativeLine } from './TimePeriodCumulativeLine';
 import { TopProductsTable } from './TopProductsTable';
 import { CANONICAL_TIME_PERIODS } from './timePeriodAnalytics';
-import { DateRangeSelector, type StatisticDateRange } from './DateRangeSelector';
+import {
+  DateRangeSelector,
+  createStatisticRangeSelection,
+  type StatisticRangeSelection,
+} from './DateRangeSelector';
 import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
 import { filterByDateRange } from './aggregation';
 import { BestDaysTable } from './BestDaysTable';
@@ -18,55 +22,14 @@ interface StatisticPageProps {
   students: Student[];
 }
 
-function getDateRangeBounds(
-  range: StatisticDateRange,
-  customStart: Date | null,
-  customEnd: Date | null,
-): { start?: Date; end?: Date } {
-  const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-  if (range === 'allTime') {
-    return {};
-  }
-
-  if (range === 'today') {
-    return { start: today, end: today };
-  }
-
-  if (range === 'thisWeek') {
-    const dayIndex = today.getDay();
-    const daysSinceMonday = dayIndex === 0 ? 6 : dayIndex - 1;
-    const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - daysSinceMonday);
-
-    return { start: startOfWeek, end: today };
-  }
-
-  if (range === 'thisMonth') {
-    return {
-      start: new Date(now.getFullYear(), now.getMonth(), 1),
-      end: today,
-    };
-  }
-
-  return {
-    start: customStart ?? today,
-    end: customEnd ?? customStart ?? today,
-  };
-}
-
 export function StatisticPage({ transactions, products, students }: StatisticPageProps) {
   const { formatCurrency } = useCurrency();
-  const [dateRange, setDateRange] = useState<StatisticDateRange>('allTime');
-  const [customStart, setCustomStart] = useState<Date | null>(null);
-  const [customEnd, setCustomEnd] = useState<Date | null>(null);
+  const [rangeSelection, setRangeSelection] = useState<StatisticRangeSelection>(() =>
+    createStatisticRangeSelection('allTime'),
+  );
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(CANONICAL_TIME_PERIODS[0].id);
 
-  const { start, end } = useMemo(
-    () => getDateRangeBounds(dateRange, customStart, customEnd),
-    [dateRange, customStart, customEnd],
-  );
+  const { start, end } = rangeSelection.bounds;
 
   const filteredTransactions = useMemo(
     () => filterByDateRange(transactions, start, end),
@@ -101,12 +64,8 @@ export function StatisticPage({ transactions, products, students }: StatisticPag
           </div>
 
           <DateRangeSelector
-            dateRange={dateRange}
-            onDateRangeChange={setDateRange}
-            customStart={customStart}
-            customEnd={customEnd}
-            onCustomStartChange={setCustomStart}
-            onCustomEndChange={setCustomEnd}
+            value={rangeSelection}
+            onChange={setRangeSelection}
           />
         </Card>
 
