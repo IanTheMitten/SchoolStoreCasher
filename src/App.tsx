@@ -13,7 +13,7 @@ import { localDb } from './services/localDb';
 
 export interface Product {
   id: string;
-  sku: string;
+  sku?: string;
   name: string;
   price: number;
   unitCost: number;
@@ -344,7 +344,6 @@ export default function App() {
             unit_cost: product.unitCost,
             stock: product.stock,
             category: product.category,
-            sku: product.sku,
             description: product.description,
             reorderLevel: product.reorderLevel,
             supplier: product.supplier,

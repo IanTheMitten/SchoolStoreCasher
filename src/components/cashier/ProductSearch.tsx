@@ -41,7 +41,6 @@ export function ProductSearch({
     const query = searchQuery.toLowerCase();
     return products.filter(product =>
       product.name.toLowerCase().includes(query) ||
-      (product.sku || '').toLowerCase().includes(query) ||
       (product.barcode || '').toLowerCase().includes(query)
     );
   }, [products, searchQuery]);
@@ -225,7 +224,7 @@ export function ProductSearch({
                     >
                       <div className="flex-1 min-w-0">
                         <div className="text-gray-900 truncate">{product.name}</div>
-                        <div className="text-gray-500 text-sm">{product.sku || ''}</div>
+                        <div className="text-gray-500 text-sm">{product.barcode || ''}</div>
                       </div>
                       <div className="flex items-center gap-3">
                         <Badge variant="outline" className={stockBadge.className}>

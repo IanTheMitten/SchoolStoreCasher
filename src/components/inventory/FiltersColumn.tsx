@@ -59,7 +59,7 @@ export function FiltersColumn({
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
           <Input
-            placeholder="Name or SKU..."
+            placeholder="Product name..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="pl-9 h-12"
