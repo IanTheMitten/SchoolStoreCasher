@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { Product, Transaction } from '../../App';
+import type { Product, Student, Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { TimePeriodRevenueBarChart } from './TimePeriodRevenueBarChart';
 import { TimePeriodCumulativeLine } from './TimePeriodCumulativeLine';
@@ -7,11 +7,14 @@ import { ProductAverageRevenueTable } from './ProductAverageRevenueTable';
 import { CANONICAL_TIME_PERIODS } from './timePeriodAnalytics';
 import { DateRangeSelector } from './DateRangeSelector';
 import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
-import type { StatisticDateRange, StatisticSamplingOptions } from './analyticsSampling';
+import { getDayKey, getSampledTransactionDates, type StatisticDateRange, type StatisticSamplingOptions } from './analyticsSampling';
+import { BestDaysTable } from './BestDaysTable';
+import { TopCustomersTable } from './TopCustomersTable';
 
 interface StatisticPageProps {
   transactions: Transaction[];
   products: Product[];
+  students: Student[];
 }
 
 function formatMonthInputValue(date: Date): string {
@@ -25,7 +28,7 @@ function parseMonthInputValue(value: string): Date {
   return new Date(year, month - 1, 1);
 }
 
-export function StatisticPage({ transactions, products }: StatisticPageProps) {
+export function StatisticPage({ transactions, products, students }: StatisticPageProps) {
   const [dateRange, setDateRange] = useState<StatisticDateRange>('thisMonth');
   const [chosenMonth, setChosenMonth] = useState(() => formatMonthInputValue(new Date()));
   const [samplingSeed, setSamplingSeed] = useState('');
@@ -38,6 +41,13 @@ export function StatisticPage({ transactions, products }: StatisticPageProps) {
     chosenMonthDate,
     seed: samplingSeed || undefined,
   }), [dateRange, chosenMonthDate, samplingSeed]);
+
+  const filteredTransactions = useMemo(() => {
+    const sampled = getSampledTransactionDates(transactions, samplingOptions);
+    const sampledDaySet = new Set(sampled.selected.map((date) => getDayKey(date)));
+
+    return transactions.filter((transaction) => sampledDaySet.has(getDayKey(transaction.timestamp)));
+  }, [transactions, samplingOptions]);
 
   return (
     <div className="h-[calc(100vh-70px)] overflow-auto">
@@ -72,6 +82,15 @@ export function StatisticPage({ transactions, products }: StatisticPageProps) {
           samplingOptions={samplingOptions}
           selectedPeriodId={selectedPeriodId}
         />
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          <BestDaysTable filteredTransactions={filteredTransactions} />
+
+          <TopCustomersTable
+            filteredTransactions={filteredTransactions}
+            students={students}
+          />
+        </div>
 
         <ProductAverageRevenueTable
           transactions={transactions}
