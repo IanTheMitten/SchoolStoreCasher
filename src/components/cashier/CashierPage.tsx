@@ -7,6 +7,8 @@ import type { Product, Student, CartItem, Transaction } from '../../App';
 import {
   detectScannerCapability,
   requestScannerConnection,
+  startScannerStream,
+  stopScannerStream,
   type ScannerCapability,
   type ScannerMode,
 } from '../../services/scanner';
@@ -43,6 +45,31 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
     void loadScannerCapability();
   }, []);
 
+
+  const handleScannedCode = (scannedCode: string) => {
+    const normalizedBarcode = scannedCode.trim().toLowerCase();
+
+    if (!normalizedBarcode) {
+      return;
+    }
+
+    const barcodeMatches = products.filter(
+      (product) => (product.barcode || '').trim().toLowerCase() === normalizedBarcode,
+    );
+
+    if (barcodeMatches.length === 1) {
+      handleAddToCart(barcodeMatches[0]);
+      return;
+    }
+
+    if (barcodeMatches.length > 1) {
+      toast.error('Multiple products share that barcode. Please fix barcode data.');
+      return;
+    }
+
+    toast.error(`No product found for barcode: ${scannedCode}`);
+  };
+
   const handleConnectScanner = async () => {
     if (!scannerCapability) return;
 
@@ -51,7 +78,7 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
       const mode = await requestScannerConnection(scannerCapability);
       setScannerMode(mode);
 
-      if (mode === 'hid' || mode === 'serial' || mode === 'usb') {
+      if (mode === 'hid' || mode === 'serial') {
         toast.success('Scanner connected successfully');
       }
     } catch {
@@ -61,27 +88,67 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
     }
   };
 
+
+  useEffect(() => {
+    if (scannerMode !== 'hid' && scannerMode !== 'serial') {
+      void stopScannerStream();
+      return;
+    }
+
+    let isMounted = true;
+
+    const startStream = async () => {
+      try {
+        await startScannerStream(handleScannedCode, {
+          mode: scannerMode,
+          serialBaudRate: 9600,
+        });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setScannerMode('keyboard');
+        toast.error(
+          error instanceof Error
+            ? `Failed to start ${scannerMode.toUpperCase()} scanner stream: ${error.message}`
+            : `Failed to start ${scannerMode.toUpperCase()} scanner stream`,
+        );
+      }
+    };
+
+    void startStream();
+
+    return () => {
+      isMounted = false;
+      void stopScannerStream();
+    };
+  }, [scannerMode, products]);
+
   const handleAddToCart = (product: Product) => {
     if (product.stock === 0) {
       toast.error(`${product.name} is out of stock`);
       return;
     }
 
-    const existingItem = cart.find(item => item.product.id === product.id);
+    setCart((currentCart) => {
+      const existingItem = currentCart.find(item => item.product.id === product.id);
 
-    if (existingItem) {
-      if (existingItem.quantity >= product.stock) {
-        toast.error(`Cannot add more ${product.name}. Stock limit reached.`);
-        return;
+      if (existingItem) {
+        if (existingItem.quantity >= product.stock) {
+          toast.error(`Cannot add more ${product.name}. Stock limit reached.`);
+          return currentCart;
+        }
+
+        return currentCart.map(item =>
+          item.product.id === product.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
+        );
       }
-      setCart(cart.map(item =>
-        item.product.id === product.id
-          ? { ...item, quantity: item.quantity + 1 }
-          : item
-      ));
-    } else {
-      setCart([...cart, { product, quantity: 1 }]);
-    }
+
+      return [...currentCart, { product, quantity: 1 }];
+    });
 
     toast.success(`${product.name} added to cart`);
   };
@@ -135,7 +202,7 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
           onAddToCart={handleAddToCart}
           searchInputRef={searchInputRef}
           scannerStatus={
-            scannerMode === 'hid' || scannerMode === 'serial' || scannerMode === 'usb'
+            scannerMode === 'hid' || scannerMode === 'serial'
               ? `Scanner connected (${scannerMode.toUpperCase()} mode)`
               : scannerCapability?.message ?? 'Checking scanner support...'
           }
