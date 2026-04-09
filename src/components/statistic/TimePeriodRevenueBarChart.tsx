@@ -4,26 +4,26 @@ import type { Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { getTimePeriodRevenueData } from './timePeriodAnalytics';
-import type { StatisticSamplingOptions } from './analyticsSampling';
 
 interface TimePeriodRevenueBarChartProps {
   transactions: Transaction[];
-  samplingOptions: StatisticSamplingOptions;
   selectedPeriodId: string | null;
   onSelectPeriod: (periodId: string) => void;
 }
 
 export function TimePeriodRevenueBarChart({
   transactions,
-  samplingOptions,
   selectedPeriodId,
   onSelectPeriod,
 }: TimePeriodRevenueBarChartProps) {
   const { formatCurrency } = useCurrency();
 
-  const { data, sampledDayCount } = useMemo(
-    () => getTimePeriodRevenueData(transactions, samplingOptions),
-    [transactions, samplingOptions],
+  const data = useMemo(
+    () => getTimePeriodRevenueData(transactions).map((entry) => ({
+      ...entry,
+      avgRevenue: entry.transactionCount > 0 ? entry.totalRevenue / entry.transactionCount : 0,
+    })),
+    [transactions],
   );
 
   return (
@@ -31,7 +31,7 @@ export function TimePeriodRevenueBarChart({
       <div className="mb-4">
         <h3 className="text-gray-900">Average Revenue by Time Period</h3>
         <p className="text-sm text-gray-600 mt-1">
-          Denominator = {sampledDayCount} sampled eligible day{sampledDayCount === 1 ? '' : 's'}.
+          Bar values are average revenue per transaction for each period.
         </p>
       </div>
       <ResponsiveContainer width="100%" height={280}>

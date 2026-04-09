@@ -7,12 +7,14 @@ import { ProductAverageRevenueTable } from './ProductAverageRevenueTable';
 import { CANONICAL_TIME_PERIODS } from './timePeriodAnalytics';
 import { DateRangeSelector } from './DateRangeSelector';
 import { WeekdayRevenueBarChart } from './WeekdayRevenueBarChart';
-import type { StatisticDateRange, StatisticSamplingOptions } from './analyticsSampling';
+import { filterByDateRange } from './aggregation';
 
 interface StatisticPageProps {
   transactions: Transaction[];
   products: Product[];
 }
+
+export type StatisticDateRange = 'thisMonth' | 'chosenMonth';
 
 function formatMonthInputValue(date: Date): string {
   const year = date.getFullYear();
@@ -25,19 +27,30 @@ function parseMonthInputValue(value: string): Date {
   return new Date(year, month - 1, 1);
 }
 
+function getDateBounds(dateRange: StatisticDateRange, chosenMonthDate: Date): { start: Date; end: Date } {
+  if (dateRange === 'chosenMonth') {
+    const start = new Date(chosenMonthDate.getFullYear(), chosenMonthDate.getMonth(), 1);
+    const end = new Date(chosenMonthDate.getFullYear(), chosenMonthDate.getMonth() + 1, 0);
+    return { start, end };
+  }
+
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  return { start, end };
+}
+
 export function StatisticPage({ transactions, products }: StatisticPageProps) {
   const [dateRange, setDateRange] = useState<StatisticDateRange>('thisMonth');
   const [chosenMonth, setChosenMonth] = useState(() => formatMonthInputValue(new Date()));
-  const [samplingSeed, setSamplingSeed] = useState('');
   const [selectedPeriodId, setSelectedPeriodId] = useState<string>(CANONICAL_TIME_PERIODS[0].id);
 
   const chosenMonthDate = useMemo(() => parseMonthInputValue(chosenMonth), [chosenMonth]);
 
-  const samplingOptions = useMemo<StatisticSamplingOptions>(() => ({
-    dateRange,
-    chosenMonthDate,
-    seed: samplingSeed || undefined,
-  }), [dateRange, chosenMonthDate, samplingSeed]);
+  const filteredTransactions = useMemo(() => {
+    const { start, end } = getDateBounds(dateRange, chosenMonthDate);
+    return filterByDateRange(transactions, start, end);
+  }, [transactions, dateRange, chosenMonthDate]);
 
   return (
     <div className="h-[calc(100vh-70px)] overflow-auto">
@@ -45,7 +58,7 @@ export function StatisticPage({ transactions, products }: StatisticPageProps) {
         <Card className="p-6 flex flex-col gap-3">
           <div>
             <h2 className="text-gray-900">Statistic</h2>
-            <p className="text-sm text-gray-600 mt-1">Weekday average revenue analytics sampled from eligible transaction days.</p>
+            <p className="text-sm text-gray-600 mt-1">Deterministic full-data analytics using transaction timestamps.</p>
           </div>
 
           <DateRangeSelector
@@ -53,30 +66,25 @@ export function StatisticPage({ transactions, products }: StatisticPageProps) {
             onDateRangeChange={setDateRange}
             chosenMonth={chosenMonth}
             onChosenMonthChange={setChosenMonth}
-            seed={samplingSeed}
-            onSeedChange={setSamplingSeed}
           />
         </Card>
 
-        <WeekdayRevenueBarChart transactions={transactions} samplingOptions={samplingOptions} />
+        <WeekdayRevenueBarChart transactions={filteredTransactions} />
 
         <TimePeriodRevenueBarChart
-          transactions={transactions}
-          samplingOptions={samplingOptions}
+          transactions={filteredTransactions}
           selectedPeriodId={selectedPeriodId}
           onSelectPeriod={setSelectedPeriodId}
         />
 
         <TimePeriodCumulativeLine
-          transactions={transactions}
-          samplingOptions={samplingOptions}
+          transactions={filteredTransactions}
           selectedPeriodId={selectedPeriodId}
         />
 
         <ProductAverageRevenueTable
-          transactions={transactions}
+          transactions={filteredTransactions}
           products={products}
-          samplingOptions={samplingOptions}
         />
       </div>
     </div>
