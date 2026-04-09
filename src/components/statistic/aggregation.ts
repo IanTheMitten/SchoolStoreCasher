@@ -1,25 +1,16 @@
 import type { Student, Transaction } from '../../App';
 import { CANONICAL_TIME_PERIODS, getPeriodIdForTimestamp } from './timePeriodAnalytics';
+import {
+  aggregateWeekdayRevenueFromTransactions,
+  toDayKey,
+  type WeekdayRevenueFromTransactions,
+} from '../analytics/sharedAggregation';
 
-const WEEKDAY_LABELS = [
-  { dayIndex: 1, label: 'Mon' },
-  { dayIndex: 2, label: 'Tue' },
-  { dayIndex: 3, label: 'Wed' },
-  { dayIndex: 4, label: 'Thu' },
-  { dayIndex: 5, label: 'Fri' },
-] as const;
 
 function toLocalDayKey(timestamp: Date): string {
-  const year = timestamp.getFullYear();
-  const month = String(timestamp.getMonth() + 1).padStart(2, '0');
-  const day = String(timestamp.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return toDayKey(timestamp);
 }
 
-function isSchoolWeekday(timestamp: Date): boolean {
-  const day = timestamp.getDay();
-  return day >= 1 && day <= 5;
-}
 
 export function filterByDateRange(transactions: Transaction[], start?: Date | null, end?: Date | null): Transaction[] {
   const startTime = start ? new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime() : null;
@@ -48,41 +39,13 @@ export interface WeekdayRevenueDatum {
 }
 
 export function revenueByWeekday(transactions: Transaction[]): WeekdayRevenueDatum[] {
-  const weekdayBuckets = WEEKDAY_LABELS.map((weekday) => ({
-    weekday: weekday.label,
-    totalRevenue: 0,
-    txCount: 0,
-    dayKeys: new Set<string>(),
+  return aggregateWeekdayRevenueFromTransactions(transactions).map((datum: WeekdayRevenueFromTransactions) => ({
+    weekday: datum.weekday,
+    totalRevenue: datum.totalRevenue,
+    avgRevenue: datum.avgRevenue,
+    txCount: datum.txCount,
+    daysObserved: datum.daysObserved,
   }));
-
-  for (const transaction of transactions) {
-    // Explicit weekend exclusion for school-only weekday analytics.
-    if (!isSchoolWeekday(transaction.timestamp)) {
-      continue;
-    }
-
-    const dayOfWeek = transaction.timestamp.getDay();
-    const bucket = weekdayBuckets[dayOfWeek - 1];
-    if (!bucket) {
-      continue;
-    }
-
-    bucket.totalRevenue += transaction.total;
-    bucket.txCount += 1;
-    bucket.dayKeys.add(toLocalDayKey(transaction.timestamp));
-  }
-
-  return weekdayBuckets.map((bucket) => {
-    const daysObserved = bucket.dayKeys.size;
-
-    return {
-      weekday: bucket.weekday,
-      totalRevenue: bucket.totalRevenue,
-      avgRevenue: daysObserved > 0 ? bucket.totalRevenue / daysObserved : 0,
-      txCount: bucket.txCount,
-      daysObserved,
-    };
-  });
 }
 
 export interface TopRevenueDay {
