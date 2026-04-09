@@ -5,19 +5,19 @@ import { Card } from '../ui/card';
 import { topCustomers } from './aggregation';
 
 interface TopCustomersTableProps {
-  transactions: Transaction[];
+  filteredTransactions: Transaction[];
   students: Student[];
 }
 
-export function TopCustomersTable({ transactions, students }: TopCustomersTableProps) {
+export function TopCustomersTable({ filteredTransactions, students }: TopCustomersTableProps) {
   const { formatCurrency } = useCurrency();
-  const rows = useMemo(() => topCustomers(transactions, students, 10), [transactions, students]);
+  const rows = useMemo(() => topCustomers(filteredTransactions, students, 10), [filteredTransactions, students]);
 
   return (
     <Card className="p-6">
       <div className="mb-4">
         <h3 className="text-gray-900">Top Customers</h3>
-        <p className="text-sm text-gray-600 mt-1">Students ranked by revenue in the selected range.</p>
+        <p className="text-sm text-gray-600 mt-1">Top 10 students by spend in the selected range.</p>
       </div>
 
       {rows.length === 0 ? (
@@ -27,19 +27,21 @@ export function TopCustomersTable({ transactions, students }: TopCustomersTableP
           <table className="w-full text-sm">
             <thead className="bg-gray-50 sticky top-0">
               <tr>
-                <th className="text-left p-2 text-gray-600">Rank</th>
-                <th className="text-left p-2 text-gray-600">Customer</th>
-                <th className="text-right p-2 text-gray-600">Transactions</th>
-                <th className="text-right p-2 text-gray-600">Revenue</th>
+                <th className="text-left p-2 text-gray-600">Student</th>
+                <th className="text-left p-2 text-gray-600">Grade</th>
+                <th className="text-right p-2 text-gray-600">Spend</th>
+                <th className="text-right p-2 text-gray-600">Visits</th>
+                <th className="text-right p-2 text-gray-600">Avg Spend/Visit</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {rows.map((row, index) => (
+              {rows.map((row) => (
                 <tr key={row.studentId} className="hover:bg-gray-50">
-                  <td className="p-2 text-gray-700">{index + 1}</td>
                   <td className="p-2 text-gray-900">{row.studentName}</td>
-                  <td className="p-2 text-right text-gray-900">{row.txCount}</td>
+                  <td className="p-2 text-gray-900">{row.grade || '—'}</td>
                   <td className="p-2 text-right text-gray-900">{formatCurrency(row.revenue)}</td>
+                  <td className="p-2 text-right text-gray-900">{row.visits}</td>
+                  <td className="p-2 text-right text-gray-900">{formatCurrency(row.avgSpendPerVisit)}</td>
                 </tr>
               ))}
             </tbody>

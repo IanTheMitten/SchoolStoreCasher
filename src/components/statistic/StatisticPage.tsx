@@ -91,15 +91,15 @@ export function StatisticPage({ transactions, products, students }: StatisticPag
           selectedPeriodId={selectedPeriodId}
         />
 
+        <div className="grid gap-6 lg:grid-cols-2">
+          <BestDaysTable filteredTransactions={filteredTransactions} />
+          <TopCustomersTable filteredTransactions={filteredTransactions} students={students} />
+        </div>
+
         <TopProductsTable
           transactions={filteredTransactions}
           products={products}
         />
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <BestDaysTable transactions={filteredTransactions} />
-          <TopCustomersTable transactions={filteredTransactions} students={students} />
-        </div>
       </div>
     </div>
   );

@@ -184,12 +184,14 @@ export function topProducts(transactions: Transaction[], limit = Number.POSITIVE
 export interface CustomerRankingRow {
   studentId: string;
   studentName: string;
+  grade?: string;
   revenue: number;
-  txCount: number;
+  visits: number;
+  avgSpendPerVisit: number;
 }
 
 export function topCustomers(transactions: Transaction[], students: Student[], limit = 10): CustomerRankingRow[] {
-  const studentNameById = new Map(students.map((student) => [student.id, student.name]));
+  const studentById = new Map(students.map((student) => [student.id, student]));
   const aggregates = new Map<string, CustomerRankingRow>();
 
   for (const transaction of transactions) {
@@ -197,20 +199,27 @@ export function topCustomers(transactions: Transaction[], students: Student[], l
       continue;
     }
 
+    const student = studentById.get(transaction.studentId);
     const existing = aggregates.get(transaction.studentId) ?? {
       studentId: transaction.studentId,
-      studentName: studentNameById.get(transaction.studentId) ?? transaction.studentId,
+      studentName: student?.name ?? transaction.studentId,
+      grade: student?.grade,
       revenue: 0,
-      txCount: 0,
+      visits: 0,
+      avgSpendPerVisit: 0,
     };
 
     existing.revenue += transaction.total;
-    existing.txCount += 1;
+    existing.visits += 1;
     aggregates.set(transaction.studentId, existing);
   }
 
   return Array.from(aggregates.values())
-    .sort((a, b) => (b.revenue - a.revenue) || (b.txCount - a.txCount) || a.studentName.localeCompare(b.studentName))
+    .map((row) => ({
+      ...row,
+      avgSpendPerVisit: row.visits > 0 ? row.revenue / row.visits : 0,
+    }))
+    .sort((a, b) => (b.revenue - a.revenue) || (b.visits - a.visits) || a.studentName.localeCompare(b.studentName))
     .slice(0, Math.max(0, limit));
 }
 
