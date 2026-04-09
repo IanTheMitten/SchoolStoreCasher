@@ -4,34 +4,45 @@ import type { Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { getTimePeriodRevenueData } from './timePeriodAnalytics';
-import type { StatisticSamplingOptions } from './analyticsSampling';
 
 interface TimePeriodRevenueBarChartProps {
   transactions: Transaction[];
-  samplingOptions: StatisticSamplingOptions;
   selectedPeriodId: string | null;
   onSelectPeriod: (periodId: string) => void;
 }
 
 export function TimePeriodRevenueBarChart({
   transactions,
-  samplingOptions,
   selectedPeriodId,
   onSelectPeriod,
 }: TimePeriodRevenueBarChartProps) {
   const { formatCurrency } = useCurrency();
 
-  const { data, sampledDayCount } = useMemo(
-    () => getTimePeriodRevenueData(transactions, samplingOptions),
-    [transactions, samplingOptions],
+  const data = useMemo(() => getTimePeriodRevenueData(transactions), [transactions]);
+  const highestRevenuePeriodId = useMemo(
+    () => data.reduce((highest, current) => (current.totalRevenue > highest.totalRevenue ? current : highest), data[0]).periodId,
+    [data],
   );
+  const highestTransactionPeriodId = useMemo(
+    () =>
+      data.reduce(
+        (highest, current) => (current.transactionCount > highest.transactionCount ? current : highest),
+        data[0],
+      ).periodId,
+    [data],
+  );
+  const highestRevenuePeriod = data.find((entry) => entry.periodId === highestRevenuePeriodId);
+  const highestTransactionPeriod = data.find((entry) => entry.periodId === highestTransactionPeriodId);
 
   return (
     <Card className="p-6">
       <div className="mb-4">
-        <h3 className="text-gray-900">Average Revenue by Time Period</h3>
+        <h3 className="text-gray-900">Revenue by Time Period</h3>
         <p className="text-sm text-gray-600 mt-1">
-          Denominator = {sampledDayCount} sampled eligible day{sampledDayCount === 1 ? '' : 's'}.
+          Highest revenue: {highestRevenuePeriod?.periodLabel ?? '—'} ({formatCurrency(highestRevenuePeriod?.totalRevenue ?? 0)})
+        </p>
+        <p className="text-sm text-gray-600 mt-1">
+          Most transactions: {highestTransactionPeriod?.periodLabel ?? '—'} ({highestTransactionPeriod?.transactionCount ?? 0} tx)
         </p>
       </div>
       <ResponsiveContainer width="100%" height={280}>
@@ -46,12 +57,21 @@ export function TimePeriodRevenueBarChart({
               borderRadius: '8px',
               fontSize: '12px',
             }}
-            formatter={(value: number) => formatCurrency(value)}
-            labelFormatter={(label) => `${label} average`}
+            formatter={(value: number, name: string, item) => {
+              if (item?.dataKey === 'totalRevenue') {
+                return [formatCurrency(value), 'Revenue'];
+              }
+
+              return [value, 'Transactions'];
+            }}
+            labelFormatter={(label, payload) => {
+              const transactionCount = payload?.[0]?.payload?.transactionCount ?? 0;
+              return `${label} • ${transactionCount} tx`;
+            }}
           />
           <Bar
-            dataKey="avgRevenue"
-            name="Average Revenue"
+            dataKey="totalRevenue"
+            name="Revenue"
             radius={[6, 6, 0, 0]}
             onClick={(entry) => {
               if (entry?.periodId) {
@@ -62,7 +82,15 @@ export function TimePeriodRevenueBarChart({
             {data.map((entry) => (
               <Cell
                 key={entry.periodId}
-                fill={selectedPeriodId === entry.periodId ? '#1d4ed8' : '#3b82f6'}
+                fill={
+                  selectedPeriodId === entry.periodId
+                    ? '#1d4ed8'
+                    : entry.periodId === highestRevenuePeriodId
+                      ? '#2563eb'
+                      : entry.periodId === highestTransactionPeriodId
+                        ? '#60a5fa'
+                        : '#93c5fd'
+                }
                 cursor="pointer"
               />
             ))}

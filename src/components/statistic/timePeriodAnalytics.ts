@@ -23,7 +23,7 @@ export interface TimePeriodRevenueDatum {
   periodId: string;
   periodLabel: string;
   totalRevenue: number;
-  avgRevenue: number;
+  transactionCount: number;
 }
 
 export interface PeriodCumulativePoint {
@@ -54,40 +54,26 @@ function formatCumulativePointLabel(timestamp: Date, index: number): string {
 
 export function getTimePeriodRevenueData(
   transactions: Transaction[],
-  samplingOptions: StatisticSamplingOptions,
-): { sampledDayCount: number; data: TimePeriodRevenueDatum[] } {
-  const sampled = getSampledTransactionDates(transactions, samplingOptions);
-  const sampledDaySet = new Set(sampled.selected.map((date) => getDayKey(date)));
-
+): TimePeriodRevenueDatum[] {
   const totalsByPeriod = new Map<string, number>(CANONICAL_TIME_PERIODS.map((period) => [period.id, 0]));
+  const transactionCountByPeriod = new Map<string, number>(CANONICAL_TIME_PERIODS.map((period) => [period.id, 0]));
 
   transactions.forEach((transaction) => {
-    if (!sampledDaySet.has(getDayKey(transaction.timestamp))) {
-      return;
-    }
-
     const periodId = getPeriodIdForTimestamp(transaction.timestamp);
     if (!periodId) {
       return;
     }
 
     totalsByPeriod.set(periodId, (totalsByPeriod.get(periodId) ?? 0) + transaction.total);
+    transactionCountByPeriod.set(periodId, (transactionCountByPeriod.get(periodId) ?? 0) + 1);
   });
 
-  const sampledDayCount = sampled.selected.length;
-
-  return {
-    sampledDayCount,
-    data: CANONICAL_TIME_PERIODS.map((period) => {
-      const totalRevenue = totalsByPeriod.get(period.id) ?? 0;
-      return {
-        periodId: period.id,
-        periodLabel: period.label,
-        totalRevenue,
-        avgRevenue: sampledDayCount > 0 ? totalRevenue / sampledDayCount : 0,
-      };
-    }),
-  };
+  return CANONICAL_TIME_PERIODS.map((period) => ({
+    periodId: period.id,
+    periodLabel: period.label,
+    totalRevenue: totalsByPeriod.get(period.id) ?? 0,
+    transactionCount: transactionCountByPeriod.get(period.id) ?? 0,
+  }));
 }
 
 export function getSelectedPeriodCumulativeSeries(
