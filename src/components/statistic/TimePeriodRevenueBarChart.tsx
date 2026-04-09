@@ -4,21 +4,31 @@ import type { Transaction } from '../../App';
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { getTimePeriodRevenueData } from './timePeriodAnalytics';
+import { getDayKey, getSampledTransactionDates, type StatisticSamplingOptions } from './analyticsSampling';
 
 interface TimePeriodRevenueBarChartProps {
   transactions: Transaction[];
+  samplingOptions: StatisticSamplingOptions;
   selectedPeriodId: string | null;
   onSelectPeriod: (periodId: string) => void;
 }
 
 export function TimePeriodRevenueBarChart({
   transactions,
+  samplingOptions,
   selectedPeriodId,
   onSelectPeriod,
 }: TimePeriodRevenueBarChartProps) {
   const { formatCurrency } = useCurrency();
 
-  const data = useMemo(() => getTimePeriodRevenueData(transactions), [transactions]);
+  const filteredTransactions = useMemo(() => {
+    const sampled = getSampledTransactionDates(transactions, samplingOptions);
+    const sampledDaySet = new Set(sampled.selected.map((date) => getDayKey(date)));
+
+    return transactions.filter((transaction) => sampledDaySet.has(getDayKey(transaction.timestamp)));
+  }, [transactions, samplingOptions]);
+
+  const data = useMemo(() => getTimePeriodRevenueData(filteredTransactions), [filteredTransactions]);
   const highestRevenuePeriodId = useMemo(
     () => data.reduce((highest, current) => (current.totalRevenue > highest.totalRevenue ? current : highest), data[0]).periodId,
     [data],

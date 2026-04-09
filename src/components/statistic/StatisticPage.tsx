@@ -62,6 +62,7 @@ export function StatisticPage({ transactions, products }: StatisticPageProps) {
 
         <TimePeriodRevenueBarChart
           transactions={transactions}
+          samplingOptions={samplingOptions}
           selectedPeriodId={selectedPeriodId}
           onSelectPeriod={setSelectedPeriodId}
         />
