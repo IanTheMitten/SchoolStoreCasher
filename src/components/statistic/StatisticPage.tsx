@@ -74,6 +74,11 @@ const parseDateInputValue = (value: string): Date | null => {
   return new Date(year, month - 1, day);
 };
 
+const formatDayKeyAsLocalDate = (dayKey: string): string => {
+  const localDate = parseDateInputValue(dayKey);
+  return localDate ? localDate.toLocaleDateString('en-US') : dayKey;
+};
+
 function getDateBounds(range: StatisticDateRange, customStart: Date | null, customEnd: Date | null): DateBounds {
   const now = new Date();
 
@@ -459,7 +464,7 @@ export function StatisticPage({ transactions, products }: StatisticPageProps) {
                 <tbody className="divide-y divide-gray-200">
                   {bestDays.map((row) => (
                     <tr key={row.dayKey}>
-                      <td className="p-2 text-gray-900">{new Date(row.dayKey).toLocaleDateString('en-US')}</td>
+                      <td className="p-2 text-gray-900">{formatDayKeyAsLocalDate(row.dayKey)}</td>
                       <td className="p-2 text-right text-gray-700">{row.transactions.toLocaleString()}</td>
                       <td className="p-2 text-right text-gray-700">{row.units.toLocaleString()}</td>
                       <td className="p-2 text-right text-gray-900">{formatCurrency(row.revenue)}</td>
