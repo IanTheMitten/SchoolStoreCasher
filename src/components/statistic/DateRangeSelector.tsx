@@ -3,28 +3,78 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Label } from '../ui/label';
 
-export type StatisticDateRange = 'allTime' | 'thisMonth' | 'chosenMonth';
+export type StatisticDateRange = 'today' | 'thisWeek' | 'thisMonth' | 'allTime' | 'custom';
 
 interface DateRangeSelectorProps {
   dateRange: StatisticDateRange;
   onDateRangeChange: (range: StatisticDateRange) => void;
-  chosenMonth: string;
-  onChosenMonthChange: (value: string) => void;
+  customStart: Date | null;
+  customEnd: Date | null;
+  onCustomStartChange: (date: Date | null) => void;
+  onCustomEndChange: (date: Date | null) => void;
 }
 
 const ranges: { value: StatisticDateRange; label: string }[] = [
-  { value: 'allTime', label: 'All Time' },
+  { value: 'today', label: 'Today' },
+  { value: 'thisWeek', label: 'This Week' },
   { value: 'thisMonth', label: 'This Month' },
-  { value: 'chosenMonth', label: 'Chosen Month' },
+  { value: 'allTime', label: 'All Time' },
+  { value: 'custom', label: 'Custom' },
 ];
+
+function toDateInputValue(date: Date | null): string {
+  if (!date) {
+    return '';
+  }
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateInputValue(value: string): Date | null {
+  if (!value) {
+    return null;
+  }
+
+  const [year, month, day] = value.split('-').map(Number);
+  if (!year || !month || !day) {
+    return null;
+  }
+
+  return new Date(year, month - 1, day);
+}
 
 export function DateRangeSelector({
   dateRange,
   onDateRangeChange,
-  chosenMonth,
-  onChosenMonthChange,
+  customStart,
+  customEnd,
+  onCustomStartChange,
+  onCustomEndChange,
 }: DateRangeSelectorProps) {
-  const showMonthInput = dateRange === 'chosenMonth';
+  const handleCustomStartChange = (nextStart: Date | null) => {
+    onDateRangeChange('custom');
+    onCustomStartChange(nextStart);
+
+    if (!nextStart) {
+      return;
+    }
+
+    if (!customEnd || customEnd < nextStart) {
+      onCustomEndChange(nextStart);
+    }
+  };
+
+  const handleCustomEndChange = (nextEnd: Date | null) => {
+    onDateRangeChange('custom');
+    onCustomEndChange(nextEnd);
+
+    if (nextEnd && customStart && nextEnd < customStart) {
+      onCustomStartChange(nextEnd);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -42,17 +92,30 @@ export function DateRangeSelector({
         ))}
       </div>
 
-      {showMonthInput && (
+      {dateRange === 'custom' && (
         <Card className="p-4 max-w-2xl mx-auto">
-          <div className="space-y-2">
-            <Label htmlFor="statistic-month">Chosen month</Label>
-            <input
-              id="statistic-month"
-              type="month"
-              value={chosenMonth}
-              onChange={(event) => onChosenMonthChange(event.target.value)}
-              className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900"
-            />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="stat-custom-start">Start date</Label>
+              <input
+                id="stat-custom-start"
+                type="date"
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={toDateInputValue(customStart)}
+                onChange={(event) => handleCustomStartChange(parseDateInputValue(event.target.value))}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="stat-custom-end">End date</Label>
+              <input
+                id="stat-custom-end"
+                type="date"
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={toDateInputValue(customEnd)}
+                onChange={(event) => handleCustomEndChange(parseDateInputValue(event.target.value))}
+              />
+            </div>
           </div>
         </Card>
       )}
