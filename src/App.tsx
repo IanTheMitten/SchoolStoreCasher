@@ -289,6 +289,7 @@ export default function App() {
           : teachers.find((t: any) => t.id === transaction.customerId)?.name || null),
       items: transaction.items.map(item => ({
         productId: item.product.id,
+        productName: item.product.name,
         quantity: item.quantity,
         unitPrice: item.product.price,
         unitCostAtSale: item.product.unitCost,
