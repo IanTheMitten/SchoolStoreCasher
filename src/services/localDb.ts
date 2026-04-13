@@ -345,12 +345,17 @@ export const localDb = {
     for (const item of sale.items || []) {
       const product = await reqToPromise(prodStore.get(item.productId)) as any;
       if (!product) throw new Error('Product not found');
-      product.stock = (product.stock || 0) - (item.quantity || 0);
+
+      const quantity = item.quantity || 0;
+      const newStock = (product.stock || 0) - quantity;
+      if (newStock < 0) throw new Error('Stock cannot be negative');
+
+      product.stock = newStock;
       prodStore.put(product);
 
       adjustmentStore.put(createInventoryAdjustment({
         productId: item.productId,
-        quantity: -(item.quantity || 0),
+        quantity: -quantity,
         reason: 'sale',
         reference: '',
         user: 'system',
