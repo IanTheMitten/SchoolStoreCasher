@@ -274,77 +274,77 @@ export default function App() {
   }, [normalizeTransactionCustomer]);
 
   const handleAddTransaction = async (transaction: Transaction) => {
+    if (!transaction.customerType || !transaction.customerId) {
+      throw new Error('Please associate the sale with a customer before completing the transaction.');
+    }
+
+    // Prepare sale data for API
+    const saleData = {
+      customerType: transaction.customerType,
+      customerId: transaction.customerId,
+      customerName:
+        transaction.customerName ||
+        (transaction.customerType === 'student'
+          ? students.find((s: Student) => s.id === transaction.customerId)?.name || null
+          : teachers.find((t: any) => t.id === transaction.customerId)?.name || null),
+      items: transaction.items.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        unitPrice: item.product.price,
+      })),
+      paymentMethod: transaction.paymentMethod,
+      timestamp: transaction.timestamp.toISOString(),
+    };
+
     try {
-      if (!transaction.customerType || !transaction.customerId) {
-        toast.error('Please associate the sale with a customer before completing the transaction.');
-        return;
+      const result = await salesAPI.create(saleData) as any;
+
+      if (!result?.ok || !result?.transaction) {
+        throw new Error('Failed to complete transaction');
       }
-      // Prepare sale data for API
-      const saleData = {
-        customerType: transaction.customerType,
-        customerId: transaction.customerId,
-        customerName:
-          transaction.customerName ||
-          (transaction.customerType === 'student'
-            ? students.find((s: Student) => s.id === transaction.customerId)?.name || null
-            : teachers.find((t: any) => t.id === transaction.customerId)?.name || null),
-        items: transaction.items.map(item => ({
-          productId: item.product.id,
-          quantity: item.quantity,
-          unitPrice: item.product.price,
-        })),
-        paymentMethod: transaction.paymentMethod,
-        timestamp: transaction.timestamp.toISOString(),
+
+      // Transform API response to frontend format
+      const newTransaction: Transaction = {
+        id: result.transaction.id,
+        timestamp: new Date(result.transaction.timestamp),
+        items: result.transaction.items.map((item: any) => {
+          const catalogProduct = products.find(p => p.id === item.productId);
+
+          return {
+            product: {
+              id: item.productId,
+              name: item.productName || catalogProduct?.name || item.productId,
+              price: item.unitPrice ?? catalogProduct?.price ?? 0,
+              unitCost: item.unitCostAtSale ?? catalogProduct?.unitCost ?? 0,
+              description: catalogProduct?.description ?? '',
+              category: catalogProduct?.category ?? '',
+              stock: catalogProduct?.stock ?? 0,
+              reorderLevel: catalogProduct?.reorderLevel ?? 0,
+              sku: catalogProduct?.sku ?? '',
+            },
+            quantity: item.quantity,
+          };
+        }),
+        subtotal: result.transaction.total,
+        tax: 0,
+        total: result.transaction.total,
+        paymentMethod: result.transaction.paymentMethod as any,
+        ...normalizeTransactionCustomer(result.transaction),
       };
 
-      const result = await salesAPI.create(saleData) as any;
-      
-      if (result.ok && result.transaction) {
-        // Transform API response to frontend format
-        const newTransaction: Transaction = {
-          id: result.transaction.id,
-          timestamp: new Date(result.transaction.timestamp),
-          items: result.transaction.items.map((item: any) => {
-            const catalogProduct = products.find(p => p.id === item.productId);
+      setTransactions((prev: Transaction[]) => [newTransaction, ...prev]);
 
-            return {
-              product: {
-                id: item.productId,
-                name: item.productName || catalogProduct?.name || item.productId,
-                price: item.unitPrice ?? catalogProduct?.price ?? 0,
-                unitCost: item.unitCostAtSale ?? catalogProduct?.unitCost ?? 0,
-                description: catalogProduct?.description ?? '',
-                category: catalogProduct?.category ?? '',
-                stock: catalogProduct?.stock ?? 0,
-                reorderLevel: catalogProduct?.reorderLevel ?? 0,
-                sku: catalogProduct?.sku ?? '',
-              },
-              quantity: item.quantity,
-            };
-          }),
-          subtotal: result.transaction.total,
-          tax: 0,
-          total: result.transaction.total,
-          paymentMethod: result.transaction.paymentMethod as any,
-          ...normalizeTransactionCustomer(result.transaction),
-        };
-
-        setTransactions((prev: Transaction[]) => [newTransaction, ...prev]);
-        
-        // Refresh products to get updated stock
-        const updatedProducts = await productsAPI.getAll() as any[];
-        setProducts(updatedProducts.map(p => ({
-          ...p,
-          unitCost: p.unit_cost || 0,
-          reorderLevel: p.reorder_level || 0,
-          lastRestock: p.lastRestock ? new Date(p.lastRestock) : undefined,
-        })));
-
-        toast.success('Transaction completed successfully!');
-      }
+      // Refresh products to get updated stock
+      const updatedProducts = await productsAPI.getAll() as any[];
+      setProducts(updatedProducts.map(p => ({
+        ...p,
+        unitCost: p.unit_cost || 0,
+        reorderLevel: p.reorder_level || 0,
+        lastRestock: p.lastRestock ? new Date(p.lastRestock) : undefined,
+      })));
     } catch (error: any) {
       console.error('Error creating transaction:', error);
-      toast.error(error.message || 'Failed to complete transaction');
+      throw new Error(error?.message || 'Failed to complete transaction');
     }
   };
 
