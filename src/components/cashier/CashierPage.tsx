@@ -17,7 +17,7 @@ interface CashierPageProps {
   products: Product[];
   students: Student[];
   teachers?: any[];
-  onAddTransaction: (transaction: Transaction) => void;
+  onAddTransaction: (transaction: Transaction) => Promise<void>;
 }
 
 export function CashierPage({ products, students, teachers = [], onAddTransaction }: CashierPageProps) {
@@ -181,11 +181,19 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
     toast.success('Item removed from cart');
   };
 
-  const handleCompleteTransaction = (transaction: Transaction) => {
-    onAddTransaction(transaction);
-    setCompletedTransaction(transaction);
-    setCart([]);
-    toast.success('Transaction completed successfully!');
+  const handleCompleteTransaction = async (transaction: Transaction) => {
+    try {
+      await onAddTransaction(transaction);
+      setCompletedTransaction(transaction);
+      setCart([]);
+      toast.success('Transaction completed successfully!');
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'Failed to complete transaction',
+      );
+    }
   };
 
   const handleCloseReceipt = () => {
