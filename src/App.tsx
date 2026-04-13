@@ -291,6 +291,7 @@ export default function App() {
         productId: item.product.id,
         quantity: item.quantity,
         unitPrice: item.product.price,
+        unitCostAtSale: item.product.unitCost,
       })),
       paymentMethod: transaction.paymentMethod,
       timestamp: transaction.timestamp.toISOString(),
@@ -315,7 +316,11 @@ export default function App() {
               id: item.productId,
               name: item.productName || catalogProduct?.name || item.productId,
               price: item.unitPrice ?? catalogProduct?.price ?? 0,
-              unitCost: item.unitCostAtSale ?? catalogProduct?.unitCost ?? 0,
+              unitCost:
+                item.unitCostAtSale ??
+                catalogProduct?.unitCost ??
+                catalogProduct?.unit_cost ??
+                0,
               description: catalogProduct?.description ?? '',
               category: catalogProduct?.category ?? '',
               stock: catalogProduct?.stock ?? 0,
