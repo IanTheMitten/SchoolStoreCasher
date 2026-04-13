@@ -358,31 +358,32 @@ export default function App() {
     const deletedIds = previousProducts
       .filter((product: Product) => !updatedById.has(product.id))
       .map((product: Product) => product.id);
-    const createdProducts = updatedProducts.filter((product: Product) => !previousById.has(product.id));
-    const existingProducts = updatedProducts.filter((product: Product) => previousById.has(product.id));
+    const changedProducts = updatedProducts.filter((product: Product) => {
+      const previousProduct = previousById.get(product.id);
 
-    // Sync API with creates, updates, and deletes
+      if (!previousProduct) {
+        return false;
+      }
+
+      return (
+        previousProduct.name !== product.name ||
+        previousProduct.price !== product.price ||
+        previousProduct.unitCost !== product.unitCost ||
+        previousProduct.stock !== product.stock ||
+        previousProduct.category !== product.category ||
+        previousProduct.description !== product.description ||
+        previousProduct.reorderLevel !== product.reorderLevel ||
+        previousProduct.supplier !== product.supplier ||
+        previousProduct.barcode !== product.barcode
+      );
+    });
+
+    // Sync API with changed existing products and deletes.
+    // New products are already persisted by AddProductModal via productsAPI.create.
     try {
       await Promise.all(
-        existingProducts.map(product =>
+        changedProducts.map(product =>
           productsAPI.update(product.id, {
-            name: product.name,
-            price: product.price,
-            unit_cost: product.unitCost,
-            stock: product.stock,
-            category: product.category,
-            description: product.description,
-            reorderLevel: product.reorderLevel,
-            supplier: product.supplier,
-            barcode: product.barcode,
-          })
-        )
-      );
-
-      await Promise.all(
-        createdProducts.map(product =>
-          productsAPI.create({
-            id: product.id,
             name: product.name,
             price: product.price,
             unit_cost: product.unitCost,
