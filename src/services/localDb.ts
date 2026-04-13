@@ -172,6 +172,12 @@ export const localDb = {
     store.put(updated);
     return new Promise(resolve => { tx.oncomplete = () => resolve(updated); });
   },
+  deleteProduct: async (id: string) => {
+    const db = await openDB();
+    const tx = db.transaction(STORE_PRODUCTS, 'readwrite');
+    tx.objectStore(STORE_PRODUCTS).delete(id);
+    return new Promise(resolve => { tx.oncomplete = () => resolve({ success: true }); });
+  },
   adjustStock: async (id: string, adjustment: { change: number; reason?: string; unit_cost?: number; reference?: string; user?: string }) => {
     const db = await openDB();
     const tx = db.transaction([STORE_PRODUCTS, STORE_INVENTORY_ADJUSTMENTS], 'readwrite');

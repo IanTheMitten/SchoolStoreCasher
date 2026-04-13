@@ -21,6 +21,10 @@ export const productsAPI = {
     return localDb.updateProduct(id, product);
   },
 
+  delete: async (id: string) => {
+    return localDb.deleteProduct(id);
+  },
+
   adjustStock: async (id: string, adjustment: { change: number; reason?: string; unit_cost?: number; reference?: string; user?: string }) => {
     return localDb.adjustStock(id, adjustment);
   },

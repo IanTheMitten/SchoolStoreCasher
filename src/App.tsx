@@ -351,11 +351,20 @@ export default function App() {
   const handleUpdateProducts = async (updatedProducts: Product[]) => {
     // Update local state immediately for UI responsiveness
     setProducts(updatedProducts);
-    
-    // Sync with API for each updated product
+
+    const previousProducts = products;
+    const previousById = new Map(previousProducts.map((product: Product) => [product.id, product]));
+    const updatedById = new Map(updatedProducts.map((product: Product) => [product.id, product]));
+    const deletedIds = previousProducts
+      .filter((product: Product) => !updatedById.has(product.id))
+      .map((product: Product) => product.id);
+    const createdProducts = updatedProducts.filter((product: Product) => !previousById.has(product.id));
+    const existingProducts = updatedProducts.filter((product: Product) => previousById.has(product.id));
+
+    // Sync API with creates, updates, and deletes
     try {
       await Promise.all(
-        updatedProducts.map(product =>
+        existingProducts.map(product =>
           productsAPI.update(product.id, {
             name: product.name,
             price: product.price,
@@ -369,6 +378,25 @@ export default function App() {
           })
         )
       );
+
+      await Promise.all(
+        createdProducts.map(product =>
+          productsAPI.create({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            unit_cost: product.unitCost,
+            stock: product.stock,
+            category: product.category,
+            description: product.description,
+            reorderLevel: product.reorderLevel,
+            supplier: product.supplier,
+            barcode: product.barcode,
+          })
+        )
+      );
+
+      await Promise.all(deletedIds.map((id: string) => productsAPI.delete(id)));
     } catch (error) {
       console.error('Error updating products:', error);
       toast.error('Failed to sync product updates');
