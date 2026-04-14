@@ -28,9 +28,6 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
-async function ensureDbReady() {
-  await openDB();
-}
 
 function reqToPromise<T>(req: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -116,9 +113,6 @@ const assertUniqueNormalizedBarcode = <
 };
 
 export const localDb = {
-  init: async () => {
-    await ensureDbReady();
-  },
 
   clearAll: async () => {
     return new Promise<void>((resolve, reject) => {
