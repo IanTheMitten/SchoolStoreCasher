@@ -19,14 +19,33 @@ function getWeekKey(date: Date): string {
   return toDayKey(weekAnchor);
 }
 
-function pickRandom<T>(values: T[], count: number): T[] {
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function createSeededRng(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state += 0x6D2B79F5;
+    let t = Math.imul(state ^ (state >>> 15), 1 | state);
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pickRandom<T>(values: T[], count: number, rng: () => number): T[] {
   if (values.length <= count) {
     return [...values];
   }
 
   const shuffled = [...values];
   for (let i = shuffled.length - 1; i > 0; i--) {
-    const randomIndex = Math.floor(Math.random() * (i + 1));
+    const randomIndex = Math.floor(rng() * (i + 1));
     [shuffled[i], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[i]];
   }
 
@@ -35,7 +54,9 @@ function pickRandom<T>(values: T[], count: number): T[] {
 
 export function getSampledTransactionDates(transactions: Transaction[], chosenMonthDate: Date): SampledTransactionDates {
   const revenueByDate = getWeekdayRevenueByDate(transactions);
-  const allDays = Array.from(revenueByDate.keys());
+  const allDays = Array.from(revenueByDate.keys()).sort();
+  const sampleSeed = hashString(`${allDays.join('|')}|${toDayKey(chosenMonthDate)}|${transactions.length}`);
+  const rng = createSeededRng(sampleSeed);
 
   const now = new Date();
   const currentMonth = allDays
@@ -60,12 +81,12 @@ export function getSampledTransactionDates(transactions: Transaction[], chosenMo
     weekGroups.set(weekKey, [...existing, date]);
   });
 
-  const randomWeeks = pickRandom(Array.from(weekGroups.keys()), 4);
+  const randomWeeks = pickRandom(Array.from(weekGroups.keys()).sort(), 4, rng);
   const randomSampleWeeks = randomWeeks
     .flatMap((weekKey) => weekGroups.get(weekKey) ?? [])
     .sort((a, b) => a.getTime() - b.getTime());
 
-  const randomTransactionDays = pickRandom(allDays, 30)
+  const randomTransactionDays = pickRandom(allDays, 30, rng)
     .map(parseDayKey)
     .sort((a, b) => a.getTime() - b.getTime());
 
