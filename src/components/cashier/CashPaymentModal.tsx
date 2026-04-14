@@ -273,7 +273,7 @@ export function CashPaymentModal({
                       <SelectItem value="teachers">Teachers</SelectItem>
                       {sortedGrades.map((grade) => (
                         <SelectItem key={grade} value={`grade:${grade}`}>
-                          Grade {grade}
+                          {grade}
                         </SelectItem>
                       ))}
                     </SelectContent>
