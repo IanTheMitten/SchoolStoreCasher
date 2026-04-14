@@ -189,13 +189,6 @@ export default function App() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        // Initialize local database
-        try {
-          await localDb.init();
-        } catch (e) {
-          console.error('Database initialization warning:', e);
-          // Continue anyway - data might already be initialized
-        }
         const [productsData, studentsData, transactionsData, expensesData, teachersData, categoriesData] = await Promise.all([
           productsAPI.getAll(),
           studentsAPI.getAll(),
