@@ -82,7 +82,7 @@ export function AddExpenseModal({ products, onAdd, onClose }: AddExpenseModalPro
             <Input
               id="amount"
               type="number"
-              step="1"
+              step="any"
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
               placeholder="0"
