@@ -48,7 +48,7 @@ export const studentsAPI = {
     return localDb.getStudentById(id);
   },
 
-  create: async (student: { name: string; grade?: string; gender?: string; barcode?: string }) => {
+  create: async (student: { id?: string; name: string; grade?: string; gender?: string; barcode?: string }) => {
     return localDb.createStudent(student);
   },
 

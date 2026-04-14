@@ -588,11 +588,66 @@ export default function App() {
   };
 
   const handleUpdateStudents = async (updatedStudents: Student[]) => {
-    // Update local state immediately
+    const previousStudents = students;
+
+    // Update local state immediately for UI responsiveness
     setStudents(updatedStudents);
-    
-    // Sync with API (students are managed in StudentManagement component)
-    // This is mainly for local state updates
+
+    const previousById = new Map(previousStudents.map((student: Student) => [student.id, student]));
+    const updatedById = new Map(updatedStudents.map((student: Student) => [student.id, student]));
+
+    const deletedIds = previousStudents
+      .filter((student: Student) => !updatedById.has(student.id))
+      .map((student: Student) => student.id);
+
+    const createdStudents = updatedStudents.filter((student: Student) => !previousById.has(student.id));
+
+    const changedStudents = updatedStudents.filter((student: Student) => {
+      const previousStudent = previousById.get(student.id);
+
+      if (!previousStudent) {
+        return false;
+      }
+
+      return (
+        previousStudent.name !== student.name ||
+        previousStudent.grade !== student.grade ||
+        previousStudent.gender !== student.gender ||
+        previousStudent.barcode !== student.barcode
+      );
+    });
+
+    try {
+      await Promise.all(
+        changedStudents.map((student: Student) =>
+          studentsAPI.update(student.id, {
+            name: student.name,
+            grade: student.grade,
+            gender: student.gender,
+            barcode: student.barcode,
+          })
+        )
+      );
+
+      await Promise.all(
+        createdStudents.map((student: Student) =>
+          studentsAPI.create({
+            id: student.id,
+            name: student.name,
+            grade: student.grade,
+            gender: student.gender,
+            barcode: student.barcode,
+          })
+        )
+      );
+
+      await Promise.all(deletedIds.map((id: string) => studentsAPI.delete(id)));
+    } catch (error) {
+      console.error('Error updating students:', error);
+      setStudents(previousStudents);
+      toast.error('Failed to sync student updates');
+      throw error;
+    }
   };
 
   if (checkingAuth) {
