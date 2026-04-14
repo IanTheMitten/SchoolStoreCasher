@@ -348,10 +348,11 @@ export default function App() {
   };
 
   const handleUpdateProducts = async (updatedProducts: Product[]) => {
+    const previousProducts = products;
+
     // Update local state immediately for UI responsiveness
     setProducts(updatedProducts);
 
-    const previousProducts = products;
     const previousById = new Map(previousProducts.map((product: Product) => [product.id, product]));
     const updatedById = new Map(updatedProducts.map((product: Product) => [product.id, product]));
     const deletedIds = previousProducts
@@ -399,7 +400,9 @@ export default function App() {
       await Promise.all(deletedIds.map((id: string) => productsAPI.delete(id)));
     } catch (error) {
       console.error('Error updating products:', error);
+      setProducts(previousProducts);
       toast.error('Failed to sync product updates');
+      throw error;
     }
   };
 
