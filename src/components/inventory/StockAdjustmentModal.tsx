@@ -44,6 +44,7 @@ export function StockAdjustmentModal({
 
   const handleSubmit = () => {
     const quantity = parseInt(formData.quantity);
+    const nextStockLevel = product.stock + quantity;
     
     if (isNaN(quantity) || quantity === 0) {
       toast.error('Please enter a valid quantity');
@@ -52,6 +53,11 @@ export function StockAdjustmentModal({
 
     if (mode === 'add' && quantity < 0) {
       toast.error('Quantity must be positive for restocking');
+      return;
+    }
+
+    if (mode === 'adjust' && nextStockLevel < 0) {
+      toast.error('Adjustment would result in negative stock');
       return;
     }
 
@@ -64,7 +70,7 @@ export function StockAdjustmentModal({
       id: `adj${Date.now()}`,
       productId: product.id,
       date: new Date(),
-      quantity: mode === 'add' ? Math.abs(quantity) : quantity,
+      quantity,
       reason: formData.reason as any,
       reference: formData.reference || undefined,
       unitCost: formData.reason === 'restock' ? parseFloat(formData.unitCost) : undefined,
@@ -158,7 +164,7 @@ export function StockAdjustmentModal({
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <div className="text-blue-600 text-sm mb-1">New Stock Level</div>
               <div className="text-blue-900">
-                {product.stock + (mode === 'add' ? Math.abs(parseInt(formData.quantity)) : parseInt(formData.quantity))} units
+                {product.stock + parseInt(formData.quantity)} units
               </div>
             </div>
           )}
