@@ -105,7 +105,7 @@ export default function App() {
 
   const normalizeTransactionCustomer = useCallback((transaction: any) => {
     const customerId = transaction.customerId ?? transaction.studentId ?? undefined;
-    const customerType = transaction.customerType ?? (customerId ? 'student' : undefined);
+    const customerType = transaction.customerType ?? undefined;
     return {
       customerType,
       customerId,

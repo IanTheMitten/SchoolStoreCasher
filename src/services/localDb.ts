@@ -76,7 +76,7 @@ const normalizeInventoryAdjustment = (adjustment: any) => ({
 
 const normalizeTransactionCustomer = (transaction: any) => {
   const customerId = transaction.customerId ?? transaction.studentId ?? null;
-  const customerType = transaction.customerType ?? (customerId ? 'student' : null);
+  const customerType = transaction.customerType ?? null;
   return {
     ...transaction,
     customerId,
@@ -364,7 +364,7 @@ export const localDb = {
       items: sale.items || [],
       total,
       paymentMethod: sale.paymentMethod,
-      customerType: sale.customerType || (sale.customerId ? 'student' : null),
+      customerType: sale.customerType ?? null,
       customerId: sale.customerId ?? sale.studentId ?? null,
       customerName: sale.customerName ?? sale.studentName ?? null,
     };
