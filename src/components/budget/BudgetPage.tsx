@@ -73,7 +73,7 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
         const candidates = [oldestTransaction, oldestExpense].filter((date): date is Date => Boolean(date));
         const oldestRecordDate = candidates.length > 0
           ? new Date(Math.min(...candidates.map(date => date.getTime())))
-          : today;
+          : new Date(now.getFullYear(), 0, 1);
 
         return normalizeRangeToDayBounds(oldestRecordDate, today);
       }
