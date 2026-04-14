@@ -452,7 +452,11 @@ export default function App() {
           datetime: restockExpense.date.toISOString(),
         }) as any;
 
-        setExpenses((prev: Expense[]) => [{ ...restockExpense, id: expenseResult.id }, ...prev]);
+        if (!expenseResult?.id || typeof expenseResult.id !== 'string') {
+          toast.error('Restock expense was not saved correctly; please add the expense manually.');
+        } else {
+          setExpenses((prev: Expense[]) => [{ ...restockExpense, id: expenseResult.id }, ...prev]);
+        }
       }
 
       toast.success('Stock adjusted successfully');
