@@ -94,7 +94,7 @@ export function TransactionsTable({ transactions, students = [], teachers = [] }
                     <td className="p-3">
                       {tx.customerId ? (
                         (() => {
-                          const isStudent = tx.customerType !== 'teacher';
+                          const isStudent = tx.customerType === 'student';
                           if (isStudent) {
                             const student = students.find(s => s.id === tx.customerId);
                             if (student) {
