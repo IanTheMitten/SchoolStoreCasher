@@ -329,17 +329,26 @@ export const localDb = {
 
   createTransaction: async (sale: any) => {
     const db = await openDB();
+    const saleItems = sale.items || [];
+    const total = (sale.items || []).reduce((sum: number, it: any) => sum + (it.unitPrice || 0) * (it.quantity || 0), 0);
+
+    const preloadTx = db.transaction(STORE_PRODUCTS, 'readonly');
+    const preloadStore = preloadTx.objectStore(STORE_PRODUCTS);
+    const productsById = new Map<string, any>();
+    for (const item of saleItems) {
+      if (productsById.has(item.productId)) continue;
+      const product = await reqToPromise(preloadStore.get(item.productId)) as any;
+      if (!product) throw new Error('Product not found');
+      productsById.set(item.productId, product);
+    }
+
     const ttx = db.transaction([STORE_TRANSACTIONS, STORE_PRODUCTS, STORE_STUDENTS, STORE_INVENTORY_ADJUSTMENTS], 'readwrite');
     const transStore = ttx.objectStore(STORE_TRANSACTIONS);
     const prodStore = ttx.objectStore(STORE_PRODUCTS);
     const adjustmentStore = ttx.objectStore(STORE_INVENTORY_ADJUSTMENTS);
 
-    const total = (sale.items || []).reduce((sum: number, it: any) => sum + (it.unitPrice || 0) * (it.quantity || 0), 0);
-
-    for (const item of sale.items || []) {
-      const product = await reqToPromise(prodStore.get(item.productId)) as any;
-      if (!product) throw new Error('Product not found');
-
+    for (const item of saleItems) {
+      const product = productsById.get(item.productId);
       const quantity = item.quantity || 0;
       const newStock = (product.stock || 0) - quantity;
       if (newStock < 0) throw new Error('Stock cannot be negative');
