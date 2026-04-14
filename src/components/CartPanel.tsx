@@ -6,6 +6,7 @@ import { Textarea } from './ui/textarea';
 import { Alert, AlertDescription } from './ui/alert';
 import { ShoppingCart, CreditCard, Banknote, Wallet, AlertCircle } from 'lucide-react';
 import type { CartItem, Student } from '../App';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 interface CartPanelProps {
   cart: CartItem[];
@@ -48,6 +49,8 @@ export function CartPanel({
   onNoteChange,
   onCheckout
 }: CartPanelProps) {
+  const { formatCurrency } = useCurrency();
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 sticky top-24 max-h-[calc(100vh-120px)] flex flex-col">
       {/* Student Selector */}
@@ -150,7 +153,7 @@ export function CartPanel({
       <div className="mb-4 p-4 bg-gray-50 rounded-lg">
         <div className="flex justify-between items-center">
           <span className="text-gray-600">Total</span>
-          <span className="text-gray-900">${total.toFixed(2)}</span>
+          <span className="text-gray-900">{formatCurrency(total)}</span>
         </div>
       </div>
 
