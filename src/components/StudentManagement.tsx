@@ -25,7 +25,7 @@ import type { Student } from '../App';
 
 interface StudentManagementProps {
   students: Student[];
-  onUpdateStudents: (students: Student[]) => void;
+  onUpdateStudents: (students: Student[]) => Promise<void>;
 }
 
 const grades = ['Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12', '국내반'];
@@ -98,7 +98,7 @@ export function StudentManagement({ students, onUpdateStudents }: StudentManagem
             ? { ...s, ...updated }
             : s
         );
-        onUpdateStudents(updatedStudents);
+        await onUpdateStudents(updatedStudents);
         toast.success('Student updated successfully');
       } else {
         // Add new student
@@ -109,7 +109,7 @@ export function StudentManagement({ students, onUpdateStudents }: StudentManagem
           barcode: formData.barcode.trim() || undefined,
         });
         
-        onUpdateStudents([...students, newStudent as Student]);
+        await onUpdateStudents([...students, newStudent as Student]);
         toast.success('Student added successfully');
       }
 
@@ -127,7 +127,7 @@ export function StudentManagement({ students, onUpdateStudents }: StudentManagem
 
     try {
       await studentsAPI.delete(studentId);
-      onUpdateStudents(students.filter(s => s.id !== studentId));
+      await onUpdateStudents(students.filter(s => s.id !== studentId));
       toast.success('Student deleted successfully');
     } catch (error: any) {
       console.error('Error deleting student:', error);
