@@ -7,6 +7,8 @@ import type { Transaction, Product } from '../../App';
 interface RevenueByProductTableProps {
   transactions: Transaction[];
   products: Product[];
+  rangeStart: Date;
+  rangeEnd: Date;
 }
 
 interface InventoryAdjustment {
@@ -75,7 +77,7 @@ const getInStockDayCount = ({
   return inStockDays;
 };
 
-export function RevenueByProductTable({ transactions, products }: RevenueByProductTableProps) {
+export function RevenueByProductTable({ transactions, products, rangeStart, rangeEnd }: RevenueByProductTableProps) {
   const { formatCurrency } = useCurrency();
   const [adjustments, setAdjustments] = useState<InventoryAdjustment[]>([]);
 
@@ -105,20 +107,6 @@ export function RevenueByProductTable({ transactions, products }: RevenueByProdu
       isMounted = false;
     };
   }, [products]);
-
-
-  const { rangeStart, rangeEnd } = useMemo(() => {
-    if (transactions.length === 0) {
-      const today = new Date();
-      return { rangeStart: today, rangeEnd: today };
-    }
-
-    const timestamps = transactions.map((tx) => tx.timestamp.getTime());
-    return {
-      rangeStart: new Date(Math.min(...timestamps)),
-      rangeEnd: new Date(Math.max(...timestamps)),
-    };
-  }, [transactions]);
 
   const productData = useMemo(() => {
     const map = new Map<string, { product: Product; unitsSold: number; revenue: number }>();

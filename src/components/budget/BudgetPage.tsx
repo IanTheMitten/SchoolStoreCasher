@@ -129,6 +129,8 @@ export function BudgetPage({ transactions, expenses, products, students = [], te
           <RevenueByProductTable
             transactions={filteredTransactions}
             products={products}
+            rangeStart={range.start}
+            rangeEnd={range.end}
           />
 
           {/* Expenses */}
