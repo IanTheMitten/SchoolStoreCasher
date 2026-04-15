@@ -144,7 +144,7 @@ export const localDb = {
     const toPut = {
       ...product,
       id,
-      barcode: product.barcode?.trim() || undefined,
+      barcode: product.barcode?.trim().toLowerCase() || undefined,
     };
     store.put(toPut);
     return new Promise(resolve => { tx.oncomplete = () => resolve(toPut); });
@@ -161,7 +161,7 @@ export const localDb = {
       ...existing,
       ...product,
       id,
-      barcode: product.barcode !== undefined ? product.barcode.trim() || undefined : existing?.barcode,
+      barcode: product.barcode !== undefined ? product.barcode.trim().toLowerCase() || undefined : existing?.barcode,
     };
     store.put(updated);
     return new Promise(resolve => { tx.oncomplete = () => resolve(updated); });
@@ -220,7 +220,7 @@ export const localDb = {
     const toPut = {
       ...student,
       id,
-      barcode: student.barcode?.trim() || undefined,
+      barcode: student.barcode?.trim().toLowerCase() || undefined,
     };
     store.put(toPut);
     return new Promise(resolve => { tx.oncomplete = () => resolve(toPut); });
@@ -237,7 +237,7 @@ export const localDb = {
       ...existing,
       ...student,
       id,
-      barcode: student.barcode !== undefined ? student.barcode.trim() || undefined : existing?.barcode,
+      barcode: student.barcode !== undefined ? student.barcode.trim().toLowerCase() || undefined : existing?.barcode,
     };
     store.put(updated);
     return new Promise(resolve => { tx.oncomplete = () => resolve(updated); });
