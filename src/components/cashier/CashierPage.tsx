@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { ProductSearch } from './ProductSearch';
 import { CartSection } from './CartSection';
 import { ReceiptModal } from './ReceiptModal';
@@ -45,8 +45,7 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
     void loadScannerCapability();
   }, []);
 
-
-  const handleScannedCode = (scannedCode: string) => {
+  const handleScannedCode = useCallback((scannedCode: string) => {
     const normalizedBarcode = scannedCode.trim().toLowerCase();
 
     if (!normalizedBarcode) {
@@ -68,7 +67,17 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
     }
 
     toast.error(`No product found for barcode: ${scannedCode}`);
-  };
+  }, [products]);
+
+  const handleScannedCodeRef = useRef(handleScannedCode);
+
+  useEffect(() => {
+    handleScannedCodeRef.current = handleScannedCode;
+  }, [handleScannedCode]);
+
+  const stableScannerHandler = useCallback((scannedCode: string) => {
+    handleScannedCodeRef.current(scannedCode);
+  }, []);
 
   const handleConnectScanner = async () => {
     if (!scannerCapability) return;
@@ -87,43 +96,6 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
       setIsConnectingScanner(false);
     }
   };
-
-
-  useEffect(() => {
-    if (scannerMode !== 'hid' && scannerMode !== 'serial') {
-      void stopScannerStream();
-      return;
-    }
-
-    let isMounted = true;
-
-    const startStream = async () => {
-      try {
-        await startScannerStream(handleScannedCode, {
-          mode: scannerMode,
-          serialBaudRate: 9600,
-        });
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        setScannerMode('keyboard');
-        toast.error(
-          error instanceof Error
-            ? `Failed to start ${scannerMode.toUpperCase()} scanner stream: ${error.message}`
-            : `Failed to start ${scannerMode.toUpperCase()} scanner stream`,
-        );
-      }
-    };
-
-    void startStream();
-
-    return () => {
-      isMounted = false;
-      void stopScannerStream();
-    };
-  }, [scannerMode, products]);
 
   const handleAddToCart = (product: Product) => {
     if (product.stock === 0) {
@@ -152,6 +124,42 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
 
     toast.success(`${product.name} added to cart`);
   };
+
+  useEffect(() => {
+    if (scannerMode !== 'hid' && scannerMode !== 'serial') {
+      void stopScannerStream();
+      return;
+    }
+
+    let isMounted = true;
+
+    const startStream = async () => {
+      try {
+        await startScannerStream(stableScannerHandler, {
+          mode: scannerMode,
+          serialBaudRate: 9600,
+        });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setScannerMode('keyboard');
+        toast.error(
+          error instanceof Error
+            ? `Failed to start ${scannerMode.toUpperCase()} scanner stream: ${error.message}`
+            : `Failed to start ${scannerMode.toUpperCase()} scanner stream`,
+        );
+      }
+    };
+
+    void startStream();
+
+    return () => {
+      isMounted = false;
+      void stopScannerStream();
+    };
+  }, [scannerMode, stableScannerHandler]);
 
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
     const item = cart.find(item => item.product.id === productId);
