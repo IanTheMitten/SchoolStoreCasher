@@ -106,7 +106,12 @@ export function AddProductModal({ onAdd, onClose, categories, existingProducts =
       toast.success('Product added successfully');
     } catch (error: any) {
       console.error('Error adding product:', error);
-      toast.error(error.message || 'Failed to add product');
+      const errorMessage = error?.message || '';
+      if (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('barcode already exists')) {
+        toast.error('A product with that barcode already exists');
+      } else {
+        toast.error(errorMessage || 'Failed to add product');
+      }
     }
   };
 
