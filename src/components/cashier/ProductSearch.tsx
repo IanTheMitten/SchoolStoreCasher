@@ -16,7 +16,6 @@ const SCAN_BURST_MAX_INTERVAL_MS = parsePositiveIntEnv(
   import.meta.env.VITE_SCAN_BURST_MAX_INTERVAL_MS,
   100
 );
-const MIN_FAST_KEYS_FOR_SCAN = parsePositiveIntEnv(import.meta.env.VITE_MIN_FAST_KEYS_FOR_SCAN, 4);
 
 interface ProductSearchProps {
   products: Product[];
@@ -40,8 +39,7 @@ export function ProductSearch({
   const [searchQuery, setSearchQuery] = useState('');
   const [scanError, setScanError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const lastKeyTsRef = useRef<number | null>(null);
-  const fastKeyCountRef = useRef(0);
+  const scanStartTsRef = useRef<number | null>(null);
   const { formatCurrency } = useCurrency();
 
   const filteredProducts = useMemo(() => {
@@ -90,8 +88,7 @@ export function ProductSearch({
   };
 
   const resetScanBurstTracking = () => {
-    lastKeyTsRef.current = null;
-    fastKeyCountRef.current = 0;
+    scanStartTsRef.current = null;
   };
 
   const handleSearchChange = (value: string) => {
@@ -114,9 +111,9 @@ export function ProductSearch({
       const barcodeMatches = products.filter(
         (product) => (product.barcode || '').trim().toLowerCase() === normalizedBarcode
       );
-      const isLikelyScannerInput =
-        fastKeyCountRef.current >= MIN_FAST_KEYS_FOR_SCAN &&
-        query.length >= MIN_FAST_KEYS_FOR_SCAN;
+      const totalElapsed =
+        scanStartTsRef.current !== null ? now - scanStartTsRef.current : Number.POSITIVE_INFINITY;
+      const isLikelyScannerInput = totalElapsed < query.length * SCAN_BURST_MAX_INTERVAL_MS;
       const hasUniqueBarcodeMatch = barcodeMatches.length === 1;
 
       if (!isLikelyScannerInput && !hasUniqueBarcodeMatch) {
@@ -145,12 +142,9 @@ export function ProductSearch({
     }
 
     if (event.key.length === 1) {
-      if (lastKeyTsRef.current !== null && now - lastKeyTsRef.current <= SCAN_BURST_MAX_INTERVAL_MS) {
-        fastKeyCountRef.current += 1;
-      } else {
-        fastKeyCountRef.current = 1;
+      if (scanStartTsRef.current === null) {
+        scanStartTsRef.current = now;
       }
-      lastKeyTsRef.current = now;
       return;
     }
 
