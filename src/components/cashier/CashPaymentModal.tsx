@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -13,6 +13,7 @@ import {
 import { toast } from 'sonner';
 import type { CartItem, Transaction, Student } from '../../App';
 import { useCurrency } from '../../contexts/CurrencyContext';
+import { useScanner } from '../../contexts/ScannerContext';
 import { roundMoney } from '../../utils/formatCurrency';
 
 interface CustomerOption {
@@ -52,12 +53,14 @@ export function CashPaymentModal({
   onClose
 }: CashPaymentModalProps) {
   const { formatCurrency } = useCurrency();
+  const { registerHandler, unregisterHandler } = useScanner();
   const [cashReceived, setCashReceived] = useState<number>(0);
   const [showCustomerSelector, setShowCustomerSelector] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
   const [studentBarcodeScan, setStudentBarcodeScan] = useState('');
   const [customerGroupFilter, setCustomerGroupFilter] = useState<string>('all');
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerOption | null>(null);
+  const studentBarcodeInputRef = useRef<HTMLInputElement>(null);
   const change = roundMoney((cashReceived || 0) - total);
   const normalizedSearch = customerSearch.trim().toLowerCase();
   const sortedGrades = Array.from(
@@ -94,6 +97,40 @@ export function CashPaymentModal({
       )
   );
   const studentRecords = (students || []) as Array<Student & { barcode?: string }>;
+
+  const handleStudentBarcodeMatch = useCallback((scannedValue: string) => {
+    const normalizedBarcode = scannedValue.trim().toLowerCase();
+    if (!normalizedBarcode) {
+      return;
+    }
+
+    const matchedStudents = studentRecords.filter(
+      (student) => (student.barcode || '').trim().toLowerCase() === normalizedBarcode
+    );
+
+    if (matchedStudents.length === 1) {
+      const matchedStudent = matchedStudents[0];
+      setSelectedCustomer({
+        id: matchedStudent.id,
+        name: matchedStudent.name,
+        type: 'student',
+        detail: matchedStudent.grade,
+        group: matchedStudent.grade || 'Ungrouped',
+      });
+      setShowCustomerSelector(false);
+      setStudentBarcodeScan('');
+      return;
+    }
+
+    if (matchedStudents.length > 1) {
+      toast.error(
+        'Duplicate student barcode detected. Admin cleanup is required before checkout can continue.'
+      );
+      return;
+    }
+
+    toast.error('Student barcode not found');
+  }, [studentRecords]);
 
   const quickAmounts = [
     { label: 'Exact', value: total, accumulate: false },
@@ -146,39 +183,26 @@ export function CashPaymentModal({
     onComplete(transaction);
   };
 
-  const handleStudentBarcodeMatch = (scannedValue: string) => {
-    const normalizedBarcode = scannedValue.trim().toLowerCase();
-    if (!normalizedBarcode) {
-      return;
+  // Register student scanner handler when modal is open
+  useEffect(() => {
+    registerHandler({
+      id: 'student-scanner',
+      handler: handleStudentBarcodeMatch,
+      priority: 10, // Higher priority than product scanner
+    });
+
+    return () => {
+      unregisterHandler('student-scanner');
+    };
+  }, [registerHandler, unregisterHandler, handleStudentBarcodeMatch]);
+
+  // Focus the barcode field whenever the customer selector opens so keyboard-wedge
+  // scanners (which type into the focused element) land their scan in this input.
+  useEffect(() => {
+    if (showCustomerSelector) {
+      studentBarcodeInputRef.current?.focus();
     }
-
-    const matchedStudents = studentRecords.filter(
-      (student) => (student.barcode || '').trim().toLowerCase() === normalizedBarcode
-    );
-
-    if (matchedStudents.length === 1) {
-      const matchedStudent = matchedStudents[0];
-      setSelectedCustomer({
-        id: matchedStudent.id,
-        name: matchedStudent.name,
-        type: 'student',
-        detail: matchedStudent.grade,
-        group: matchedStudent.grade || 'Ungrouped',
-      });
-      setShowCustomerSelector(false);
-      setStudentBarcodeScan('');
-      return;
-    }
-
-    if (matchedStudents.length > 1) {
-      toast.error(
-        'Duplicate student barcode detected. Admin cleanup is required before checkout can continue.'
-      );
-      return;
-    }
-
-    toast.error('Student barcode not found');
-  };
+  }, [showCustomerSelector]);
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -243,6 +267,8 @@ export function CashPaymentModal({
               <div className="mt-2 rounded border bg-white p-2">
                 <div className="mb-2">
                   <Input
+                    ref={studentBarcodeInputRef}
+                    autoFocus
                     placeholder="Scan student ID barcode..."
                     value={studentBarcodeScan}
                     onChange={(e) => setStudentBarcodeScan((e.target as HTMLInputElement).value)}

@@ -4,14 +4,7 @@ import { CartSection } from './CartSection';
 import { ReceiptModal } from './ReceiptModal';
 import { toast } from 'sonner';
 import type { Product, Student, CartItem, Transaction } from '../../App';
-import {
-  detectScannerCapability,
-  requestScannerConnection,
-  startScannerStream,
-  stopScannerStream,
-  type ScannerCapability,
-  type ScannerMode,
-} from '../../services/scanner';
+import { useScanner } from '../../contexts/ScannerContext';
 
 interface CashierPageProps {
   products: Product[];
@@ -23,10 +16,17 @@ interface CashierPageProps {
 export function CashierPage({ products, students, teachers = [], onAddTransaction }: CashierPageProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null);
-  const [scannerCapability, setScannerCapability] = useState<ScannerCapability | null>(null);
-  const [isConnectingScanner, setIsConnectingScanner] = useState(false);
-  const [scannerMode, setScannerMode] = useState<ScannerMode>('keyboard');
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    capability: scannerCapability,
+    isConnected: scannerIsConnected,
+    activeMode: scannerMode,
+    isConnecting: isConnectingScanner,
+    registerHandler,
+    unregisterHandler,
+    connectScanner,
+  } = useScanner();
 
   // Auto-focus search after transaction
   useEffect(() => {
@@ -34,16 +34,6 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
       searchInputRef.current?.focus();
     }
   }, [completedTransaction]);
-
-  useEffect(() => {
-    const loadScannerCapability = async () => {
-      const capability = await detectScannerCapability();
-      setScannerCapability(capability);
-      setScannerMode(capability.mode);
-    };
-
-    void loadScannerCapability();
-  }, []);
 
   const handleScannedCode = useCallback((scannedCode: string) => {
     const normalizedBarcode = scannedCode.trim().toLowerCase();
@@ -69,33 +59,18 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
     toast.error(`No product found for barcode: ${scannedCode}`);
   }, [products]);
 
-  const handleScannedCodeRef = useRef(handleScannedCode);
-
+  // Register product scanner handler
   useEffect(() => {
-    handleScannedCodeRef.current = handleScannedCode;
-  }, [handleScannedCode]);
+    registerHandler({
+      id: 'product-scanner',
+      handler: handleScannedCode,
+      priority: 1, // Lower priority than student scanner
+    });
 
-  const stableScannerHandler = useCallback((scannedCode: string) => {
-    handleScannedCodeRef.current(scannedCode);
-  }, []);
-
-  const handleConnectScanner = async () => {
-    if (!scannerCapability) return;
-
-    try {
-      setIsConnectingScanner(true);
-      const mode = await requestScannerConnection(scannerCapability);
-      setScannerMode(mode);
-
-      if (mode === 'hid' || mode === 'serial') {
-        toast.success('Scanner connected successfully');
-      }
-    } catch {
-      toast.error('Scanner connection cancelled or failed');
-    } finally {
-      setIsConnectingScanner(false);
-    }
-  };
+    return () => {
+      unregisterHandler('product-scanner');
+    };
+  }, [registerHandler, unregisterHandler, handleScannedCode]);
 
   const handleAddToCart = (product: Product) => {
     if (product.stock === 0) {
@@ -125,41 +100,14 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
     toast.success(`${product.name} added to cart`);
   };
 
-  useEffect(() => {
-    if (scannerMode !== 'hid' && scannerMode !== 'serial') {
-      void stopScannerStream();
-      return;
+  const handleConnectScanner = async () => {
+    try {
+      await connectScanner();
+      toast.success('Scanner connected successfully');
+    } catch {
+      toast.error('Scanner connection cancelled or failed');
     }
-
-    let isMounted = true;
-
-    const startStream = async () => {
-      try {
-        await startScannerStream(stableScannerHandler, {
-          mode: scannerMode,
-          serialBaudRate: 9600,
-        });
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        setScannerMode('keyboard');
-        toast.error(
-          error instanceof Error
-            ? `Failed to start ${scannerMode.toUpperCase()} scanner stream: ${error.message}`
-            : `Failed to start ${scannerMode.toUpperCase()} scanner stream`,
-        );
-      }
-    };
-
-    void startStream();
-
-    return () => {
-      isMounted = false;
-      void stopScannerStream();
-    };
-  }, [scannerMode, stableScannerHandler]);
+  };
 
   const handleUpdateQuantity = (productId: string, newQuantity: number) => {
     const item = cart.find(item => item.product.id === productId);
@@ -210,7 +158,7 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
   };
 
   const scannerApiStatus = scannerCapability?.message ?? 'Checking scanner support...';
-  const isConnectedMode = ['hid', 'serial', 'usb'].includes(scannerMode as string);
+  const isConnectedMode = ['hid', 'serial', 'usb'].includes(scannerMode);
   const scannerConnectionStatus =
     isConnectedMode
       ? `Connected (${scannerMode.toUpperCase()} mode)`

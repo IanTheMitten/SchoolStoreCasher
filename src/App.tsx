@@ -10,6 +10,7 @@ import { GradesPage } from './components/grades/GradesPage';
 import { StatisticPage } from './components/statistic/StatisticPage';
 import { productsAPI, studentsAPI, salesAPI, expensesAPI, teachersAPI, categoriesAPI } from './services/api';
 import { localDb } from './services/localDb';
+import { ScannerProvider } from './contexts/ScannerContext';
 
 export interface Product {
   id: string;
@@ -656,12 +657,13 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <TopBar 
-        currentPage={currentPage} 
-        onNavigate={setCurrentPage}
-        onLogout={handleLogout}
-      />
+    <ScannerProvider>
+      <div className="min-h-screen bg-gray-50">
+        <TopBar
+          currentPage={currentPage}
+          onNavigate={setCurrentPage}
+          onLogout={handleLogout}
+        />
       
       {currentPage === 'cashier' && (
         <CashierPage 
@@ -720,8 +722,9 @@ export default function App() {
           students={students}
         />
       )}
-      
-      <Toaster />
-    </div>
+
+        <Toaster />
+      </div>
+    </ScannerProvider>
   );
 }
