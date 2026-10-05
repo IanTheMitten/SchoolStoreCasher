@@ -5,8 +5,7 @@ import { TopBar } from './components/TopBar';
 import { CashierPage } from './components/cashier/CashierPage';
 import { InventoryPage } from './components/inventory/InventoryPage';
 import { BudgetPage } from './components/budget/BudgetPage';
-import { StudentManagement } from './components/StudentManagement';
-import { GradesPage } from './components/grades/GradesPage';
+import { PeoplePage } from './components/people/PeoplePage';
 import { StatisticPage } from './components/statistic/StatisticPage';
 import { productsAPI, studentsAPI, salesAPI, expensesAPI, teachersAPI, categoriesAPI } from './services/api';
 import { localDb } from './services/localDb';
@@ -32,6 +31,14 @@ export interface Student {
   name: string;
   grade: string;
   gender?: string;
+  barcode?: string;
+}
+
+export interface Teacher {
+  id: string;
+  name: string;
+  subject?: string;
+  email?: string;
   barcode?: string;
 }
 
@@ -93,10 +100,10 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
-  const [currentPage, setCurrentPage] = useState<'cashier' | 'inventory' | 'budget' | 'students' | 'grades' | 'statistic'>('cashier');
+  const [currentPage, setCurrentPage] = useState<'cashier' | 'inventory' | 'budget' | 'people' | 'statistic'>('cashier');
   const [products, setProducts] = useState<Product[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
-  const [teachers, setTeachers] = useState<any[]>([]);
+  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [stockHistory, setStockHistory] = useState<StockAdjustment[]>([]);
@@ -184,6 +191,13 @@ export default function App() {
       window.clearInterval(intervalId);
     };
   }, [isAuthenticated, handleLogout]);
+
+  // Ask the browser not to evict our IndexedDB data (best effort, silent)
+  useEffect(() => {
+    try {
+      navigator.storage?.persist?.().catch(() => {});
+    } catch {}
+  }, []);
 
   // Fetch initial data
   useEffect(() => {
@@ -515,37 +529,39 @@ export default function App() {
     }
   };
 
-  const handleCreateTeacher = async (teacher: any) => {
+  // Teacher handlers follow the same pattern as handleUpdateStudents: optimistic local update,
+  // persist here (components never call the API), revert and rethrow on error.
+  const handleCreateTeacher = async (teacher: Teacher) => {
+    setTeachers(prev => [...prev, teacher]);
     try {
-      const created = await teachersAPI.create(teacher);
-      const all = await teachersAPI.getAll();
-      setTeachers(all as any[]);
-      return created;
+      await teachersAPI.create(teacher);
     } catch (e) {
       console.error('Error creating teacher', e);
+      setTeachers(prev => prev.filter(t => t.id !== teacher.id));
       throw e;
     }
   };
 
-  const handleUpdateTeacher = async (id: string, data: any) => {
+  const handleUpdateTeacher = async (id: string, data: Partial<Teacher>) => {
+    const previous = teachers.find(t => t.id === id);
+    setTeachers(prev => prev.map(t => (t.id === id ? { ...t, ...data } : t)));
     try {
-      const updated = await teachersAPI.update(id, data);
-      const all = await teachersAPI.getAll();
-      setTeachers(all as any[]);
-      return updated;
+      await teachersAPI.update(id, data);
     } catch (e) {
       console.error('Error updating teacher', e);
+      if (previous) setTeachers(prev => prev.map(t => (t.id === id ? previous : t)));
       throw e;
     }
   };
 
   const handleDeleteTeacher = async (id: string) => {
+    const previous = teachers;
+    setTeachers(prev => prev.filter(t => t.id !== id));
     try {
       await teachersAPI.delete(id);
-      const all = await teachersAPI.getAll();
-      setTeachers(all as any[]);
     } catch (e) {
       console.error('Error deleting teacher', e);
+      setTeachers(previous);
       throw e;
     }
   };
@@ -608,8 +624,7 @@ export default function App() {
     } catch (error) {
       console.error('Error updating students:', error);
       setStudents(previousStudents);
-      toast.error('Failed to sync student updates');
-      throw error;
+      throw error; // callers (People page) show the specific error toast
     }
   };
 
@@ -697,18 +712,13 @@ export default function App() {
         />
       )}
 
-      {currentPage === 'students' && (
-        <StudentManagement 
-          students={students}
-          onUpdateStudents={handleUpdateStudents}
-        />
-      )}
-
-      {currentPage === 'grades' && (
-        <GradesPage 
+      {currentPage === 'people' && (
+        <PeoplePage
           transactions={transactions}
           students={students}
           teachers={teachers}
+          products={products}
+          onUpdateStudents={handleUpdateStudents}
           onCreateTeacher={handleCreateTeacher}
           onUpdateTeacher={handleUpdateTeacher}
           onDeleteTeacher={handleDeleteTeacher}
@@ -720,6 +730,7 @@ export default function App() {
           transactions={transactions}
           products={products}
           students={students}
+          expenses={expenses}
         />
       )}
 

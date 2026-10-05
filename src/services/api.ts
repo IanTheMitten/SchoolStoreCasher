@@ -1,4 +1,5 @@
-import { localDb } from './localDb';
+import { localDb, parseBackup, countSnapshot } from './localDb';
+import type { BackupSnapshot } from './localDb';
 
 // Standalone local-only mode - all data is stored in IndexedDB on the device
 // No server connectivity required
@@ -146,4 +147,15 @@ export const categoriesAPI = {
   delete: async (id: string) => {
     return localDb.deleteCategory(id);
   }
+};
+
+// Backup & Restore API
+export const backupAPI = {
+  exportAll: async () => localDb.exportAll(),
+  // Validates a parsed backup file without touching any data; returns per-store counts.
+  inspect: (raw: unknown) => {
+    const snapshot: BackupSnapshot = parseBackup(raw);
+    return { snapshot, counts: countSnapshot(snapshot) };
+  },
+  restore: async (snapshot: BackupSnapshot) => localDb.importAll(snapshot, { mode: 'replace' }),
 };

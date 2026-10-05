@@ -4,7 +4,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Label } from '../ui/label';
 
-export type StatisticDateRange = 'today' | 'thisWeek' | 'thisMonth' | 'allTime' | 'custom';
+export type StatisticDateRange = 'today' | 'thisWeek' | 'thisMonth' | 'last30' | 'allTime' | 'custom';
 
 export interface StatisticRangeBounds {
   start?: Date;
@@ -28,6 +28,7 @@ const ranges: { value: StatisticDateRange; label: string }[] = [
   { value: 'today', label: 'Today' },
   { value: 'thisWeek', label: 'This Week' },
   { value: 'thisMonth', label: 'This Month' },
+  { value: 'last30', label: 'Last 30 Days' },
   { value: 'allTime', label: 'All Time' },
   { value: 'custom', label: 'Custom' },
 ];
@@ -58,6 +59,12 @@ export function resolveStatisticRangeBounds(
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - daysSinceMonday);
     return { start: startOfWeek, end: today };
+  }
+
+  if (range === 'last30') {
+    const from = new Date(today);
+    from.setDate(today.getDate() - 29);
+    return { start: from, end: today };
   }
 
   if (range === 'thisMonth') {
@@ -155,7 +162,7 @@ export function DateRangeSelector({ value, onChange }: DateRangeSelectorProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-center gap-2 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         <CalendarIcon className="size-5 text-gray-400" />
         {ranges.map((range) => (
           <Button

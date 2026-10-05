@@ -1,18 +1,31 @@
 import { useState, useEffect } from 'react';
-import { Settings, LogOut, DollarSign, Package, ShoppingCart, Users, GraduationCap, BarChart3 } from 'lucide-react';
+import { Settings, LogOut, DollarSign, Package, ShoppingCart, Users, BarChart3 } from 'lucide-react';
 import { Button } from './ui/button';
+import { toast } from 'sonner';
+import { BackupRestoreDialog, isBackupOverdue } from './BackupRestoreDialog';
 import { useCurrency } from '../contexts/CurrencyContext';
 import type { CurrencyCode } from '../contexts/CurrencyContext';
 
 interface TopBarProps {
-  currentPage: 'cashier' | 'inventory' | 'budget' | 'students' | 'grades' | 'statistic';
-  onNavigate: (page: 'cashier' | 'inventory' | 'budget' | 'students' | 'grades' | 'statistic') => void;
+  currentPage: 'cashier' | 'inventory' | 'budget' | 'people' | 'statistic';
+  onNavigate: (page: 'cashier' | 'inventory' | 'budget' | 'people' | 'statistic') => void;
   onLogout?: () => void;
 }
 
 export function TopBar({ currentPage, onNavigate, onLogout }: TopBarProps) {
   const { currency, setCurrency } = useCurrency();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [backupOpen, setBackupOpen] = useState(false);
+  const [backupOverdue, setBackupOverdue] = useState(() => isBackupOverdue());
+
+  useEffect(() => {
+    if (isBackupOverdue()) {
+      toast('No recent backup', {
+        description: "It's been over a week since your last backup. Open Settings to download one.",
+        duration: 8000,
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -43,8 +56,7 @@ export function TopBar({ currentPage, onNavigate, onLogout }: TopBarProps) {
     { id: 'cashier' as const, label: 'Cashier', icon: ShoppingCart },
     { id: 'inventory' as const, label: 'Inventory', icon: Package },
     { id: 'budget' as const, label: 'Budget', icon: DollarSign },
-    { id: 'students' as const, label: 'Students', icon: Users },
-    { id: 'grades' as const, label: 'Customers', icon: GraduationCap },
+    { id: 'people' as const, label: 'People', icon: Users },
     { id: 'statistic' as const, label: 'Statistic', icon: BarChart3 }
   ];
 
@@ -89,9 +101,21 @@ export function TopBar({ currentPage, onNavigate, onLogout }: TopBarProps) {
             <option value="EUR">€ EUR</option>
           </select>
           
-          <Button variant="ghost" size="sm">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="relative"
+            title="Backup & Restore"
+            onClick={() => setBackupOpen(true)}
+          >
             <Settings className="size-4" />
+            {backupOverdue && <span className="absolute top-1 right-1 size-2 rounded-full bg-amber-500" />}
           </Button>
+          <BackupRestoreDialog
+            open={backupOpen}
+            onOpenChange={setBackupOpen}
+            onBackupDone={() => setBackupOverdue(false)}
+          />
           <Button variant="ghost" size="sm" onClick={onLogout} title="Log out">
             <LogOut className="size-4" />
           </Button>

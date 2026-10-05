@@ -112,7 +112,146 @@ const assertUniqueNormalizedBarcode = <
   }
 };
 
+const PERSON_BARCODE_CONFLICT = 'Barcode already exists on another student or teacher';
+
+// Students and teachers share one barcode namespace (the cashier scanner matches both).
+const getAllPeopleForBarcodes = async (tx: IDBTransaction) => {
+  const students = await reqToPromise(tx.objectStore(STORE_STUDENTS).getAll()) as any[];
+  const teachers = await reqToPromise(tx.objectStore(STORE_TEACHERS).getAll()) as any[];
+  return [...students, ...teachers] as Array<{ id?: string; barcode?: string }>;
+};
+
+const BACKUP_APP_NAME = 'SchoolStoreCasher';
+const ALL_STORES = [
+  STORE_PRODUCTS,
+  STORE_STUDENTS,
+  STORE_TEACHERS,
+  STORE_TRANSACTIONS,
+  STORE_EXPENSES,
+  STORE_CATEGORIES,
+  STORE_INVENTORY_ADJUSTMENTS,
+] as const;
+
+export type BackupStoreName = typeof ALL_STORES[number];
+
+export interface BackupSnapshot {
+  app: string;
+  schemaVersion: number;
+  exportedAt: string;
+  data: Record<BackupStoreName, any[]>;
+}
+
+// Dates are structured-cloned by IndexedDB (they stay Date objects), but JSON would
+// turn them into plain strings. Tag them so a restore gives back real Date objects.
+const DATE_TAG = '__date__';
+
+const encodeDates = (value: any): any => {
+  if (value instanceof Date) return { [DATE_TAG]: value.toISOString() };
+  if (Array.isArray(value)) return value.map(encodeDates);
+  if (value && typeof value === 'object') {
+    const out: Record<string, any> = {};
+    for (const key of Object.keys(value)) out[key] = encodeDates(value[key]);
+    return out;
+  }
+  return value;
+};
+
+const decodeDates = (value: any): any => {
+  if (Array.isArray(value)) return value.map(decodeDates);
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value);
+    if (keys.length === 1 && keys[0] === DATE_TAG && typeof value[DATE_TAG] === 'string') {
+      return new Date(value[DATE_TAG]);
+    }
+    const out: Record<string, any> = {};
+    for (const key of keys) out[key] = decodeDates(value[key]);
+    return out;
+  }
+  return value;
+};
+
+const validateSnapshot = (snapshot: any): BackupSnapshot => {
+  if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) {
+    throw new Error('Invalid backup file: not a backup object.');
+  }
+  if (snapshot.app !== BACKUP_APP_NAME) {
+    throw new Error('Invalid backup file: this is not a SchoolStoreCasher backup.');
+  }
+  if (typeof snapshot.schemaVersion !== 'number') {
+    throw new Error('Invalid backup file: missing schema version.');
+  }
+  if (snapshot.schemaVersion > DB_VERSION) {
+    throw new Error(`This backup was made by a newer version of the app (schema ${snapshot.schemaVersion}). Please update the app first.`);
+  }
+  if (snapshot.schemaVersion < 1) {
+    throw new Error('Invalid backup file: unsupported schema version.');
+  }
+  if (!snapshot.data || typeof snapshot.data !== 'object') {
+    throw new Error('Invalid backup file: missing data.');
+  }
+  for (const name of ALL_STORES) {
+    const rows = snapshot.data[name];
+    if (!Array.isArray(rows)) {
+      throw new Error(`Invalid backup file: "${name}" is missing or not a list.`);
+    }
+    for (const row of rows) {
+      if (!row || typeof row !== 'object' || Array.isArray(row) || (typeof row.id !== 'string' && typeof row.id !== 'number')) {
+        throw new Error(`Invalid backup file: a record in "${name}" has no valid id.`);
+      }
+    }
+  }
+  return snapshot as BackupSnapshot;
+};
+
+export const countSnapshot = (snapshot: BackupSnapshot): Record<BackupStoreName, number> => {
+  const counts = {} as Record<BackupStoreName, number>;
+  for (const name of ALL_STORES) counts[name] = snapshot.data[name].length;
+  return counts;
+};
+
+export const parseBackup = (raw: unknown): BackupSnapshot => validateSnapshot(raw);
+
 export const localDb = {
+
+  exportAll: async (): Promise<BackupSnapshot> => {
+    const db = await openDB();
+    const tx = db.transaction([...ALL_STORES], 'readonly');
+    const data = {} as Record<BackupStoreName, any[]>;
+    const results = await Promise.all(ALL_STORES.map(name => reqToPromise(tx.objectStore(name).getAll())));
+    ALL_STORES.forEach((name, i) => { data[name] = encodeDates(results[i]); });
+    db.close();
+    return { app: BACKUP_APP_NAME, schemaVersion: DB_VERSION, exportedAt: new Date().toISOString(), data };
+  },
+
+  importAll: async (snapshot: unknown, options: { mode: 'replace' } = { mode: 'replace' }): Promise<Record<BackupStoreName, number>> => {
+    if (options.mode !== 'replace') throw new Error('Unsupported import mode.');
+    const valid = validateSnapshot(snapshot); // throws before anything is touched
+    const rowsByStore = {} as Record<BackupStoreName, any[]>;
+    for (const name of ALL_STORES) rowsByStore[name] = decodeDates(valid.data[name]);
+
+    const db = await openDB();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const tx = db.transaction([...ALL_STORES], 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onabort = () => reject(tx.error || new Error('Restore failed and was rolled back.'));
+        tx.onerror = () => reject(tx.error || new Error('Restore failed and was rolled back.'));
+        try {
+          for (const name of ALL_STORES) {
+            const store = tx.objectStore(name);
+            store.clear();
+            for (const row of rowsByStore[name]) store.put(row);
+          }
+        } catch (err) {
+          try { tx.abort(); } catch {}
+          reject(err);
+        }
+      });
+    } finally {
+      db.close();
+    }
+    return countSnapshot(valid);
+  },
 
   clearAll: async () => {
     return new Promise<void>((resolve, reject) => {
@@ -212,10 +351,10 @@ export const localDb = {
   },
   createStudent: async (student: { id?: string; name: string; grade?: string; gender?: string; barcode?: string }) => {
     const db = await openDB();
-    const tx = db.transaction(STORE_STUDENTS, 'readwrite');
+    const tx = db.transaction([STORE_STUDENTS, STORE_TEACHERS], 'readwrite');
     const store = tx.objectStore(STORE_STUDENTS);
-    const allStudents = await reqToPromise(store.getAll()) as any[];
-    assertUniqueNormalizedBarcode(allStudents, student.barcode, 'Student barcode already exists');
+    const allPeople = await getAllPeopleForBarcodes(tx);
+    assertUniqueNormalizedBarcode(allPeople, student.barcode, PERSON_BARCODE_CONFLICT, student.id);
     const id = student.id || `stu-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const toPut = {
       ...student,
@@ -227,11 +366,11 @@ export const localDb = {
   },
   updateStudent: async (id: string, student: { name?: string; grade?: string; gender?: string; barcode?: string }) => {
     const db = await openDB();
-    const tx = db.transaction(STORE_STUDENTS, 'readwrite');
+    const tx = db.transaction([STORE_STUDENTS, STORE_TEACHERS], 'readwrite');
     const store = tx.objectStore(STORE_STUDENTS);
-    const allStudents = await reqToPromise(store.getAll()) as any[];
-    const nextBarcode = student.barcode !== undefined ? student.barcode : allStudents.find(item => item.id === id)?.barcode;
-    assertUniqueNormalizedBarcode(allStudents, nextBarcode, 'Student barcode already exists', id);
+    const allPeople = await getAllPeopleForBarcodes(tx);
+    const nextBarcode = student.barcode !== undefined ? student.barcode : allPeople.find(item => item.id === id)?.barcode;
+    assertUniqueNormalizedBarcode(allPeople, nextBarcode, PERSON_BARCODE_CONFLICT, id);
     const existing = await reqToPromise(store.get(id)) as any;
     const updated = {
       ...existing,
@@ -269,19 +408,30 @@ export const localDb = {
   },
   createTeacher: async (teacher: any) => {
     const db = await openDB();
-    const tx = db.transaction(STORE_TEACHERS, 'readwrite');
+    const tx = db.transaction([STORE_STUDENTS, STORE_TEACHERS], 'readwrite');
     const store = tx.objectStore(STORE_TEACHERS);
     const id = teacher.id || `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const toPut = { ...teacher, id };
+    const allPeople = await getAllPeopleForBarcodes(tx);
+    assertUniqueNormalizedBarcode(allPeople, teacher.barcode, PERSON_BARCODE_CONFLICT, id);
+    const toPut = { ...teacher, id, barcode: normalizeBarcode(teacher.barcode) || undefined };
     store.put(toPut);
     return new Promise(resolve => { tx.oncomplete = () => resolve(toPut); });
   },
   updateTeacher: async (id: string, teacher: any) => {
     const db = await openDB();
-    const tx = db.transaction(STORE_TEACHERS, 'readwrite');
+    const tx = db.transaction([STORE_STUDENTS, STORE_TEACHERS], 'readwrite');
     const store = tx.objectStore(STORE_TEACHERS);
+    const allPeople = await getAllPeopleForBarcodes(tx);
     const existing = await reqToPromise(store.get(id)) as any;
-    const updated = { ...existing, ...teacher, id };
+    if (teacher.barcode !== undefined) {
+      assertUniqueNormalizedBarcode(allPeople, teacher.barcode, PERSON_BARCODE_CONFLICT, id);
+    }
+    const updated = {
+      ...existing,
+      ...teacher,
+      id,
+      barcode: teacher.barcode !== undefined ? normalizeBarcode(teacher.barcode) || undefined : existing?.barcode,
+    };
     store.put(updated);
     return new Promise(resolve => { tx.oncomplete = () => resolve(updated); });
   },

@@ -29,6 +29,7 @@ interface Teacher {
   name: string;
   subject?: string;
   email?: string;
+  barcode?: string;
 }
 
 interface CashPaymentModalProps {
@@ -98,39 +99,49 @@ export function CashPaymentModal({
   );
   const studentRecords = (students || []) as Array<Student & { barcode?: string }>;
 
+  const teacherRecords = (teachers || []) as Teacher[];
+
+  // Students and teachers share one barcode namespace, so a scan can select either.
   const handleStudentBarcodeMatch = useCallback((scannedValue: string) => {
     const normalizedBarcode = scannedValue.trim().toLowerCase();
     if (!normalizedBarcode) {
       return;
     }
+    const matches = (barcode?: string) => (barcode || '').trim().toLowerCase() === normalizedBarcode;
 
-    const matchedStudents = studentRecords.filter(
-      (student) => (student.barcode || '').trim().toLowerCase() === normalizedBarcode
-    );
+    const matchedCustomers: CustomerOption[] = [
+      ...studentRecords.filter((student) => matches(student.barcode)).map((student) => ({
+        id: student.id,
+        name: student.name,
+        type: 'student' as const,
+        detail: student.grade,
+        group: student.grade || 'Ungrouped',
+      })),
+      ...teacherRecords.filter((teacher) => matches(teacher.barcode)).map((teacher) => ({
+        id: teacher.id,
+        name: teacher.name,
+        type: 'teacher' as const,
+        detail: teacher.subject || teacher.email || 'Teacher',
+        group: 'Teachers',
+      })),
+    ];
 
-    if (matchedStudents.length === 1) {
-      const matchedStudent = matchedStudents[0];
-      setSelectedCustomer({
-        id: matchedStudent.id,
-        name: matchedStudent.name,
-        type: 'student',
-        detail: matchedStudent.grade,
-        group: matchedStudent.grade || 'Ungrouped',
-      });
+    if (matchedCustomers.length === 1) {
+      setSelectedCustomer(matchedCustomers[0]);
       setShowCustomerSelector(false);
       setStudentBarcodeScan('');
       return;
     }
 
-    if (matchedStudents.length > 1) {
+    if (matchedCustomers.length > 1) {
       toast.error(
-        'Duplicate student barcode detected. Admin cleanup is required before checkout can continue.'
+        'Duplicate barcode detected. Admin cleanup is required before checkout can continue.'
       );
       return;
     }
 
-    toast.error('Student barcode not found');
-  }, [studentRecords]);
+    toast.error('Barcode not found');
+  }, [studentRecords, teacherRecords]);
 
   const quickAmounts = [
     { label: 'Exact', value: total, accumulate: false },
@@ -269,7 +280,7 @@ export function CashPaymentModal({
                   <Input
                     ref={studentBarcodeInputRef}
                     autoFocus
-                    placeholder="Scan student ID barcode..."
+                    placeholder="Scan student or teacher barcode..."
                     value={studentBarcodeScan}
                     onChange={(e) => setStudentBarcodeScan((e.target as HTMLInputElement).value)}
                     onKeyDown={(e) => {
