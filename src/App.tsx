@@ -55,7 +55,8 @@ export interface Transaction {
   tax: number;
   total: number;
   paymentMethod: 'cash' | 'card';
-  customerType?: 'student' | 'teacher';
+  // 'grade' is a temporary shortcut: customerId/customerName hold the grade label.
+  customerType?: 'student' | 'teacher' | 'grade';
   customerId?: string;
   customerName?: string;
   cashReceived?: number;
@@ -292,9 +293,11 @@ export default function App() {
       customerId: transaction.customerId,
       customerName:
         transaction.customerName ||
-        (transaction.customerType === 'student'
-          ? students.find((s: Student) => s.id === transaction.customerId)?.name || null
-          : teachers.find((t: any) => t.id === transaction.customerId)?.name || null),
+        (transaction.customerType === 'grade'
+          ? transaction.customerId
+          : transaction.customerType === 'student'
+            ? students.find((s: Student) => s.id === transaction.customerId)?.name || null
+            : teachers.find((t: any) => t.id === transaction.customerId)?.name || null),
       items: transaction.items.map(item => ({
         productId: item.product.id,
         productName: item.product.name,

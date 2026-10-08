@@ -147,7 +147,7 @@ export function topProducts(transactions: Transaction[], limit = Number.POSITIVE
 export interface CustomerRankingRow {
   customerKey: string;
   customerId: string;
-  customerType: 'student' | 'teacher';
+  customerType: 'student' | 'teacher' | 'grade';
   customerName: string;
   grade?: string;
   revenue: number;

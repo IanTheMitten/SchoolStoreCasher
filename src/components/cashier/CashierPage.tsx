@@ -3,13 +3,13 @@ import { ProductSearch } from './ProductSearch';
 import { CartSection } from './CartSection';
 import { ReceiptModal } from './ReceiptModal';
 import { toast } from 'sonner';
-import type { Product, Student, CartItem, Transaction } from '../../App';
+import type { Product, Student, Teacher, CartItem, Transaction } from '../../App';
 import { useScanner } from '../../contexts/ScannerContext';
 
 interface CashierPageProps {
   products: Product[];
   students: Student[];
-  teachers?: any[];
+  teachers?: Teacher[];
   onAddTransaction: (transaction: Transaction) => Promise<void>;
 }
 
@@ -17,6 +17,8 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
   const [cart, setCart] = useState<CartItem[]>([]);
   const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const cartRef = useRef<CartItem[]>(cart);
+  cartRef.current = cart;
 
   const {
     capability: scannerCapability,
@@ -73,31 +75,29 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
   }, [registerHandler, unregisterHandler, handleScannedCode]);
 
   const handleAddToCart = (product: Product) => {
-    if (product.stock === 0) {
+    if (product.stock <= 0) {
       toast.error(`${product.name} is out of stock`);
       return;
     }
 
+    // Check against the latest cart (via ref) so stale scanner callbacks see current quantities.
+    const existingItem = cartRef.current.find(item => item.product.id === product.id);
+    if (existingItem && existingItem.quantity >= product.stock) {
+      toast.error(`Cannot add more ${product.name}. Stock limit reached.`);
+      return;
+    }
+
     setCart((currentCart) => {
-      const existingItem = currentCart.find(item => item.product.id === product.id);
-
-      if (existingItem) {
-        if (existingItem.quantity >= product.stock) {
-          toast.error(`Cannot add more ${product.name}. Stock limit reached.`);
-          return currentCart;
-        }
-
+      const current = currentCart.find(item => item.product.id === product.id);
+      if (current) {
         return currentCart.map(item =>
           item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
+            ? { ...item, quantity: Math.min(item.quantity + 1, product.stock) }
             : item
         );
       }
-
       return [...currentCart, { product, quantity: 1 }];
     });
-
-    toast.success(`${product.name} added to cart`);
   };
 
   const handleConnectScanner = async () => {

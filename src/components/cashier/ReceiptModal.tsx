@@ -66,6 +66,12 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
               <span className="text-gray-600">Payment Method</span>
               <span className="text-gray-900">{getPaymentMethodLabel(transaction.paymentMethod)}</span>
             </div>
+            {transaction.customerName && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">Customer</span>
+                <span className="text-gray-900">{transaction.customerName}</span>
+              </div>
+            )}
           </div>
 
           {/* Items */}

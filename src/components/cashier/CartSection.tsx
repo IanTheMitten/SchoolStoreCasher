@@ -5,12 +5,12 @@ import { Input } from '../ui/input';
 import { CashPaymentModal } from './CashPaymentModal';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { roundMoney } from '../../utils/formatCurrency';
-import type { CartItem, Student, Transaction } from '../../App';
+import type { CartItem, Student, Teacher, Transaction } from '../../App';
 
 interface CartSectionProps {
   cart: CartItem[];
   students: Student[];
-  teachers?: any[];
+  teachers?: Teacher[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveFromCart: (productId: string) => void;
   onCompleteTransaction: (transaction: Transaction) => Promise<void>;
@@ -140,7 +140,7 @@ export function CartSection({
           className="w-full h-[70px]"
           variant="outline"
         >
-          Cash Payment
+          Purchase
         </Button>
       </div>
 

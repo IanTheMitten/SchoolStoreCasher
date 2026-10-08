@@ -69,7 +69,7 @@ export const studentsAPI = {
 // Sales/Transactions API
 export const salesAPI = {
   create: async (sale: {
-    customerType?: 'student' | 'teacher' | null;
+    customerType?: 'student' | 'teacher' | 'grade' | null;
     customerId?: string | null;
     customerName?: string | null;
     items: Array<{ productId: string; quantity: number; unitPrice?: number; unitCostAtSale?: number }>;
@@ -79,7 +79,7 @@ export const salesAPI = {
     return localDb.createTransaction(sale);
   },
   
-  getAll: async (filters?: { customerType?: 'student' | 'teacher'; customerId?: string; studentId?: string; start?: string; end?: string }) => {
+  getAll: async (filters?: { customerType?: 'student' | 'teacher' | 'grade'; customerId?: string; studentId?: string; start?: string; end?: string }) => {
     return localDb.getAllTransactions(filters as any);
   },
 };
