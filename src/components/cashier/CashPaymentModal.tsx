@@ -184,6 +184,7 @@ export function CashPaymentModal({
           {/* Scan — keyboard-wedge scanners type into the focused field */}
           <Input
             autoFocus
+            data-scanner-input
             placeholder="Scan student or teacher barcode..."
             value={barcodeScan}
             disabled={isSubmitting}

@@ -1,4 +1,4 @@
-import { Plus, Settings, Trash2, History } from 'lucide-react';
+import { Pencil, Trash2, History } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -8,8 +8,7 @@ interface InventoryTableProps {
   products: Product[];
   selectedProduct: Product | null;
   onSelectProduct: (product: Product) => void;
-  onAddStock: (product: Product) => void;
-  onAdjust: (product: Product) => void;
+  onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
 }
 
@@ -17,8 +16,7 @@ export function InventoryTable({
   products,
   selectedProduct,
   onSelectProduct,
-  onAddStock,
-  onAdjust,
+  onEdit,
   onDelete
 }: InventoryTableProps) {
   const { formatCurrency } = useCurrency();
@@ -91,18 +89,10 @@ export function InventoryTable({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => onAddStock(product)}
-                      title="Add Stock"
+                      onClick={() => onEdit(product)}
+                      title="Edit / stock"
                     >
-                      <Plus className="size-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onAdjust(product)}
-                      title="Adjust"
-                    >
-                      <Settings className="size-4" />
+                      <Pencil className="size-4" />
                     </Button>
                     <Button
                       variant="outline"

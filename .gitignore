@@ -6,3 +6,6 @@ build/
 .env
 .env.*
 *.db
+
+# Local on-disk mirror of the store database (see vite-plugin-file-db.ts)
+data/

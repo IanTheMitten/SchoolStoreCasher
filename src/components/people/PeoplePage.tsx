@@ -1,6 +1,6 @@
 import '../../styles/people.css';
 import { useMemo, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { FileUp, Plus, Search } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
@@ -8,6 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { AddPersonDialog } from './AddPersonDialog';
 import { PersonPanel } from './PersonPanel';
+import { ImportStudentsDialog } from './ImportStudentsDialog';
+import type { StudentCsvRow } from './csvImport';
+import type { StudentImportMode, StudentImportResult } from '../../services/localDb';
 import { GRADES } from './types';
 import type { PeopleActions, Person, PersonKind } from './types';
 import type { Product, Student, Teacher, Transaction } from '../../App';
@@ -18,6 +21,7 @@ interface PeoplePageProps {
   teachers: Teacher[];
   products: Product[];
   onUpdateStudents: (students: Student[]) => Promise<void>;
+  onImportStudents: (rows: StudentCsvRow[], mode: StudentImportMode) => Promise<StudentImportResult>;
   onCreateTeacher: (teacher: Teacher) => Promise<void>;
   onUpdateTeacher: (id: string, data: Partial<Teacher>) => Promise<void>;
   onDeleteTeacher: (id: string) => Promise<void>;
@@ -29,12 +33,13 @@ type SortKey = 'name' | 'spent';
 const formatDate = (d: Date) =>
   new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(d);
 
-export function PeoplePage({ transactions, students, teachers, products, onUpdateStudents, onCreateTeacher, onUpdateTeacher, onDeleteTeacher }: PeoplePageProps) {
+export function PeoplePage({ transactions, students, teachers, products, onUpdateStudents, onImportStudents, onCreateTeacher, onUpdateTeacher, onDeleteTeacher }: PeoplePageProps) {
   const { formatCurrency } = useCurrency();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [sort, setSort] = useState<SortKey>('name');
   const [addOpen, setAddOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [selected, setSelected] = useState<{ kind: PersonKind; id: string } | null>(null);
 
   const people = useMemo<Person[]>(() => {
@@ -123,7 +128,11 @@ export function PeoplePage({ transactions, students, teachers, products, onUpdat
             <SelectItem value="spent">Sort: Total spent</SelectItem>
           </SelectContent>
         </Select>
-        <Button className="ml-auto" onClick={() => setAddOpen(true)}>
+        <Button variant="outline" className="ml-auto" onClick={() => setImportOpen(true)}>
+          <FileUp className="size-4 mr-2" />
+          Import CSV
+        </Button>
+        <Button onClick={() => setAddOpen(true)}>
           <Plus className="size-4 mr-2" />
           Add person
         </Button>
@@ -184,6 +193,12 @@ export function PeoplePage({ transactions, students, teachers, products, onUpdat
         actions={actions}
         defaultKind={filter === 'teachers' ? 'teacher' : 'student'}
         defaultGrade={filter.startsWith('grade:') ? filter.slice(6) : undefined}
+      />
+      <ImportStudentsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        existingCount={students.length}
+        onImport={onImportStudents}
       />
       <PersonPanel person={selectedPerson} onClose={() => setSelected(null)} actions={actions} transactions={transactions} />
     </div>
