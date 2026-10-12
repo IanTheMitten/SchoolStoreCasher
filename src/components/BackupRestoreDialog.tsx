@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { backupAPI } from '../services/api';
+import { fileSync } from '../services/fileSync';
 
 export const LAST_BACKUP_KEY = 'schoolstore_last_backup';
 export const BACKUP_REMINDER_DAYS = 7;
@@ -111,6 +112,8 @@ export function BackupRestoreDialog({ open, onOpenChange, onBackupDone }: Backup
     setBusy(true);
     try {
       await backupAPI.restore(pending.snapshot);
+      // data/db.json is loaded on startup, so it must hold the restored data before reloading.
+      await fileSync.waitForSave();
       toast.success('Backup restored. Reloading...');
       setTimeout(() => window.location.reload(), 600);
     } catch (error: any) {
@@ -127,7 +130,7 @@ export function BackupRestoreDialog({ open, onOpenChange, onBackupDone }: Backup
           <DialogHeader>
             <DialogTitle>Backup &amp; Restore</DialogTitle>
             <DialogDescription>
-              All store data lives only in this browser. Download a backup regularly and keep it somewhere safe.
+              Store data is kept in this browser and mirrored to data/db.json on this computer. Download a backup regularly and keep it somewhere safe.
             </DialogDescription>
           </DialogHeader>
           <div className="text-sm text-gray-600">

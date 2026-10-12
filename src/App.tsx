@@ -9,6 +9,8 @@ import { PeoplePage } from './components/people/PeoplePage';
 import { StatisticPage } from './components/statistic/StatisticPage';
 import { productsAPI, studentsAPI, salesAPI, expensesAPI, teachersAPI, categoriesAPI } from './services/api';
 import { localDb } from './services/localDb';
+import type { StudentImportMode } from './services/localDb';
+import { fileSync } from './services/fileSync';
 import { ScannerProvider } from './contexts/ScannerContext';
 
 export interface Product {
@@ -205,6 +207,8 @@ export default function App() {
     const fetchData = async () => {
       try {
         setLoading(true);
+        // Load data/db.json into IndexedDB (or seed it) before reading anything.
+        await fileSync.init();
         const [productsData, studentsData, transactionsData, expensesData, teachersData, categoriesData] = await Promise.all([
           productsAPI.getAll(),
           studentsAPI.getAll(),
@@ -397,7 +401,7 @@ export default function App() {
     });
 
     // Sync API with changed existing products and deletes.
-    // New products are already persisted by AddProductModal via productsAPI.create.
+    // New products are already persisted by ProductDialog via productsAPI.create.
     try {
       await Promise.all(
         changedProducts.map(product =>
@@ -631,6 +635,12 @@ export default function App() {
     }
   };
 
+  const handleImportStudents = async (rows: Array<{ barcode: string; name: string; grade: string }>, mode: StudentImportMode) => {
+    const result = await studentsAPI.importMany(rows, mode);
+    setStudents(await studentsAPI.getAll());
+    return result;
+  };
+
   if (checkingAuth) {
     return null;
   }
@@ -722,6 +732,7 @@ export default function App() {
           teachers={teachers}
           products={products}
           onUpdateStudents={handleUpdateStudents}
+          onImportStudents={handleImportStudents}
           onCreateTeacher={handleCreateTeacher}
           onUpdateTeacher={handleUpdateTeacher}
           onDeleteTeacher={handleDeleteTeacher}

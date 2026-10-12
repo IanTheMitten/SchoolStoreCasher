@@ -1,4 +1,4 @@
-import { X, Plus, Settings, Clock } from 'lucide-react';
+import { X, Pencil, Clock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useCurrency } from '../../contexts/CurrencyContext';
@@ -8,17 +8,14 @@ interface ProductDetailPaneProps {
   product: Product;
   stockHistory: StockAdjustment[];
   onClose: () => void;
-  onAddStock: () => void;
-  onAdjust: () => void;
-  onUpdate: (product: Product) => void;
+  onEdit: () => void;
 }
 
 export function ProductDetailPane({
   product,
   stockHistory,
   onClose,
-  onAddStock,
-  onAdjust
+  onEdit
 }: ProductDetailPaneProps) {
   const { formatCurrency } = useCurrency();
 
@@ -89,13 +86,9 @@ export function ProductDetailPane({
 
         {/* Actions */}
         <div className="space-y-2">
-          <Button onClick={onAddStock} className="w-full" size="sm">
-            <Plus className="size-4 mr-2" />
-            Add Stock
-          </Button>
-          <Button onClick={onAdjust} variant="outline" className="w-full" size="sm">
-            <Settings className="size-4 mr-2" />
-            Adjust Quantity
+          <Button onClick={onEdit} className="w-full" size="sm">
+            <Pencil className="size-4 mr-2" />
+            Edit / Restock
           </Button>
         </div>
 

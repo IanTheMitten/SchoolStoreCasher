@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { FiltersColumn } from './FiltersColumn';
 import { InventoryTable } from './InventoryTable';
 import { ProductDetailPane } from './ProductDetailPane';
-import { AddProductModal } from './AddProductModal';
-import { StockAdjustmentModal } from './StockAdjustmentModal';
+import { ProductDialog } from './ProductDialog';
+import type { ProductDialogTarget } from './ProductDialog';
+import { useScanner } from '../../contexts/ScannerContext';
 import type { Product, StockAdjustment } from '../../App';
 
 interface InventoryPageProps {
   products: Product[];
   stockHistory: StockAdjustment[];
-  onUpdateProducts: (products: Product[]) => void;
-  onAddStockAdjustment: (adjustment: StockAdjustment) => void;
+  onUpdateProducts: (products: Product[]) => Promise<void> | void;
+  onAddStockAdjustment: (adjustment: StockAdjustment) => Promise<void> | void;
   categories?: { id: string; name: string }[];
   onCreateCategory?: (name: string) => Promise<any>;
   onDeleteCategory?: (id: string) => Promise<any>;
@@ -26,15 +28,43 @@ export function InventoryPage({
   const [searchQuery, setSearchQuery] = useState('');
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [adjustmentMode, setAdjustmentMode] = useState<'add' | 'adjust' | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [dialogTarget, setDialogTarget] = useState<ProductDialogTarget | null>(null);
+  const { registerHandler, unregisterHandler } = useScanner();
+
+  // Look up by id so the detail pane always shows current stock/price after edits.
+  const selectedProduct = products.find(p => p.id === selectedProductId) || null;
+  const setSelectedProduct = (product: Product | null) => setSelectedProductId(product?.id ?? null);
+  const openEdit = (product: Product) => {
+    setSelectedProductId(product.id);
+    setDialogTarget({ kind: 'edit', productId: product.id });
+  };
+
+  // Scan anywhere on this page: known barcode opens that product, unknown starts a new one.
+  // (While the product dialog is open, its own higher-priority handler takes over.)
+  const handleScan = useCallback((scanned: string) => {
+    const code = scanned.trim().toLowerCase();
+    const match = products.find(p => (p.barcode || '').trim().toLowerCase() === code);
+    if (match) {
+      setSelectedProductId(match.id);
+      setDialogTarget({ kind: 'edit', productId: match.id });
+    } else {
+      setDialogTarget({ kind: 'add', barcode: scanned.trim() });
+      toast.info(`New barcode ${scanned.trim()} — add the product`);
+    }
+  }, [products]);
+
+  useEffect(() => {
+    registerHandler({ id: 'inventory-scanner', priority: 5, handler: handleScan });
+    return () => unregisterHandler('inventory-scanner');
+  }, [registerHandler, unregisterHandler, handleScan]);
 
   const productCategories = Array.from(new Set(products.map(p => p.category)));
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = !searchQuery || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.barcode || '').toLowerCase().includes(searchQuery.toLowerCase());
     
     const matchesLowStock = !lowStockOnly || product.stock < product.reorderLevel;
     
@@ -72,11 +102,11 @@ export function InventoryPage({
 
   const handleAddProduct = (product: Product) => {
     onUpdateProducts([...products, product]);
-    setShowAddModal(false);
+    setDialogTarget(null);
   };
 
-  const handleUpdateProduct = (updatedProduct: Product) => {
-    onUpdateProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+  const handleUpdateProduct = async (updatedProduct: Product) => {
+    await onUpdateProducts(products.map(p => p.id === updatedProduct.id ? updatedProduct : p));
   };
 
   const handleDeleteProduct = (productId: string) => {
@@ -101,7 +131,7 @@ export function InventoryPage({
           onCategoryChange={setCategoryFilter}
             categories={categories.length ? categories : productCategories.map((c) => ({ id: `cat-${c}`, name: c }))}
           onResetFilters={handleResetFilters}
-          onAddProduct={() => setShowAddModal(true)}
+          onAddProduct={() => setDialogTarget({ kind: 'add' })}
           onExportCSV={handleExportCSV}
             onAddCategory={onCreateCategory}
             onDeleteCategory={onDeleteCategory}
@@ -114,14 +144,7 @@ export function InventoryPage({
           products={filteredProducts}
           selectedProduct={selectedProduct}
           onSelectProduct={setSelectedProduct}
-          onAddStock={(product) => {
-            setSelectedProduct(product);
-            setAdjustmentMode('add');
-          }}
-          onAdjust={(product) => {
-            setSelectedProduct(product);
-            setAdjustmentMode('adjust');
-          }}
+          onEdit={openEdit}
           onDelete={handleDeleteProduct}
         />
       </div>
@@ -133,33 +156,24 @@ export function InventoryPage({
             product={selectedProduct}
             stockHistory={stockHistory.filter(h => h.productId === selectedProduct.id)}
             onClose={() => setSelectedProduct(null)}
-            onAddStock={() => setAdjustmentMode('add')}
-            onAdjust={() => setAdjustmentMode('adjust')}
-            onUpdate={handleUpdateProduct}
+            onEdit={() => openEdit(selectedProduct)}
           />
         </div>
       )}
 
-      {/* Add Product Modal */}
-      {showAddModal && (
-        <AddProductModal
-          onAdd={handleAddProduct}
-          onClose={() => setShowAddModal(false)}
+      {dialogTarget && (
+        <ProductDialog
+          target={dialogTarget}
+          products={products}
           categories={categories.length ? categories : productCategories.map((c) => ({ id: `cat-${c}`, name: c }))}
-          existingProducts={products}
-        />
-      )}
-
-      {/* Stock Adjustment Modal */}
-      {adjustmentMode && selectedProduct && (
-        <StockAdjustmentModal
-          product={selectedProduct}
-          mode={adjustmentMode}
-          onComplete={(adjustment) => {
-            onAddStockAdjustment(adjustment);
-            setAdjustmentMode(null);
+          onCreated={handleAddProduct}
+          onSave={handleUpdateProduct}
+          onAddStockAdjustment={onAddStockAdjustment}
+          onTargetChange={(target) => {
+            if (target.kind === 'edit') setSelectedProductId(target.productId);
+            setDialogTarget(target);
           }}
-          onClose={() => setAdjustmentMode(null)}
+          onClose={() => setDialogTarget(null)}
         />
       )}
     </div>

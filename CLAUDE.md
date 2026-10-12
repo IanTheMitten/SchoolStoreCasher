@@ -52,6 +52,8 @@ All data is stored locally in IndexedDB. The database structure is defined in `s
 
 All data access happens through the service layer. Never access IndexedDB directly outside of `localDb.ts`.
 
+**Disk mirror**: `vite-plugin-file-db.ts` serves `/__filedb` (dev + preview) backed by gitignored `data/db.json`. `services/fileSync.ts` on startup compares file vs IndexedDB and the side with more data wins (transactions + inventoryAdjustments, then total rows; ties → file; seeded from the browser if missing), then rewrites it after every mutating `localDb` method (see `MUTATING_METHODS` in `localDb.ts` — add new write methods there).
+
 ### Optimistic Updates Pattern
 
 The application uses optimistic updates for UI responsiveness:
@@ -105,7 +107,7 @@ function MyComponent() {
 }
 ```
 
-Higher `priority` wins when multiple handlers are registered. The context manages the scanner stream lifecycle automatically.
+Higher `priority` wins when multiple handlers are registered. The context manages the scanner stream lifecycle automatically. Keyboard-wedge scans are caught page-wide (no focused input needed) by `startKeyboardWedge` in `services/scanner.ts`; inputs marked `data-scanner-input` opt out and handle Enter themselves.
 
 ## Common Tasks
 

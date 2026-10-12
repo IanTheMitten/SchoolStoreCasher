@@ -594,5 +594,82 @@ export const localDb = {
     const tx = db.transaction(STORE_EXPENSES, 'readwrite');
     tx.objectStore(STORE_EXPENSES).delete(id);
     return new Promise(resolve => { tx.oncomplete = () => resolve({ success: true }); });
-  }
+  },
+
+  // Bulk student import (CSV). 'replace' removes students not in the file; 'add' keeps them.
+  // Either way a row whose barcode matches an existing student updates that student in place
+  // (same id), so their purchase history stays linked.
+  importStudents: async (
+    rows: Array<{ barcode: string; name: string; grade: string }>,
+    mode: StudentImportMode,
+  ): Promise<StudentImportResult> => {
+    const db = await openDB();
+    const tx = db.transaction([STORE_STUDENTS, STORE_TEACHERS], 'readwrite');
+    const store = tx.objectStore(STORE_STUDENTS);
+    const existing = await reqToPromise(store.getAll()) as any[];
+    const teachers = await reqToPromise(tx.objectStore(STORE_TEACHERS).getAll()) as any[];
+    const teacherBarcodes = new Set(teachers.map(t => normalizeBarcode(t.barcode)).filter(Boolean));
+    const existingByBarcode = new Map(existing.filter(s => s.barcode).map(s => [normalizeBarcode(s.barcode), s]));
+
+    const result: StudentImportResult = { created: 0, updated: 0, removed: 0, skippedTeacherBarcodes: [] };
+    const keptIds = new Set<string>();
+
+    if (mode === 'replace') store.clear();
+
+    for (const row of rows) {
+      const barcode = normalizeBarcode(row.barcode);
+      if (teacherBarcodes.has(barcode)) {
+        result.skippedTeacherBarcodes.push(barcode);
+        continue;
+      }
+      const match = existingByBarcode.get(barcode);
+      const id = match?.id || `stu-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      store.put({ ...match, id, name: row.name, grade: row.grade, barcode });
+      keptIds.add(id);
+      if (match) result.updated++; else result.created++;
+    }
+
+    if (mode === 'replace') result.removed = existing.filter(s => !keptIds.has(s.id)).length;
+
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve(result);
+      tx.onabort = () => reject(tx.error || new Error('Import failed and was rolled back.'));
+    });
+  },
 };
+
+export type StudentImportMode = 'add' | 'replace';
+
+export interface StudentImportResult {
+  created: number;
+  updated: number;
+  removed: number;
+  skippedTeacherBarcodes: string[];
+}
+
+// Change notifications, used by fileSync to mirror the database to disk after every write.
+const changeListeners = new Set<() => void>();
+
+export const onDbChange = (listener: () => void) => {
+  changeListeners.add(listener);
+  return () => { changeListeners.delete(listener); };
+};
+
+const MUTATING_METHODS = [
+  'importAll',
+  'createProduct', 'updateProduct', 'deleteProduct', 'adjustStock',
+  'createStudent', 'updateStudent', 'deleteStudent', 'importStudents',
+  'createTeacher', 'updateTeacher', 'deleteTeacher',
+  'createCategory', 'updateCategory', 'deleteCategory',
+  'createTransaction',
+  'createExpense', 'deleteExpense',
+] as const satisfies ReadonlyArray<keyof typeof localDb>;
+
+for (const name of MUTATING_METHODS) {
+  const original = localDb[name] as (...args: any[]) => Promise<any>;
+  (localDb as any)[name] = async (...args: any[]) => {
+    const result = await original(...args);
+    changeListeners.forEach(listener => listener());
+    return result;
+  };
+}

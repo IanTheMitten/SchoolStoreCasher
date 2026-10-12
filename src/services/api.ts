@@ -1,5 +1,5 @@
 import { localDb, parseBackup, countSnapshot } from './localDb';
-import type { BackupSnapshot } from './localDb';
+import type { BackupSnapshot, StudentImportMode } from './localDb';
 
 // Standalone local-only mode - all data is stored in IndexedDB on the device
 // No server connectivity required
@@ -63,6 +63,10 @@ export const studentsAPI = {
 
   getPurchases: async (id: string) => {
     return localDb.getPurchasesByStudent(id);
+  },
+
+  importMany: async (rows: Array<{ barcode: string; name: string; grade: string }>, mode: StudentImportMode) => {
+    return localDb.importStudents(rows, mode);
   },
 };
 

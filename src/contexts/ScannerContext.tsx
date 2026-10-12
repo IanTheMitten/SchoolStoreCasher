@@ -1,6 +1,6 @@
 import { createContext, useContext, useCallback, useState, useRef, useEffect } from 'react';
 import type { ScannerMode, ScannerCapability } from '../services/scanner';
-import { detectScannerCapability, startScannerStream, stopScannerStream, requestScannerConnection } from '../services/scanner';
+import { detectScannerCapability, startScannerStream, stopScannerStream, requestScannerConnection, startKeyboardWedge } from '../services/scanner';
 
 export interface ScanHandler {
   id: string;
@@ -75,6 +75,9 @@ export function ScannerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void refreshCapability();
   }, [refreshCapability]);
+
+  // Keyboard-wedge scans are caught page-wide (no focused input needed) whenever a handler is registered.
+  useEffect(() => startKeyboardWedge(handleScannedCode, () => getActiveHandler() !== null), [handleScannedCode, getActiveHandler]);
 
   // Manage scanner stream based on mode and active handlers
   useEffect(() => {

@@ -238,3 +238,65 @@ export const stopScannerStream = async (): Promise<void> => {
   await streamCleanup();
   streamCleanup = null;
 };
+
+// Keyboard-wedge scanners "type" the barcode followed by Enter, much faster than a person.
+// This listens on the whole window so a scan works without any input being focused.
+// Fields marked with data-scanner-input handle scans themselves and are left alone. If the
+// scan landed in some other text field, the typed barcode is removed from it again.
+export const SCANNER_INPUT_ATTR = 'data-scanner-input';
+
+const WEDGE_MAX_KEY_INTERVAL_MS = (() => {
+  const parsed = Number.parseInt(import.meta.env.VITE_SCAN_BURST_MAX_INTERVAL_MS ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 50;
+})();
+const WEDGE_MIN_LENGTH = 4;
+const IGNORED_KEYS = new Set(['Shift', 'CapsLock']);
+
+const removeTypedSuffix = (el: Element | null, code: string) => {
+  if (!(el instanceof HTMLInputElement) && !(el instanceof HTMLTextAreaElement)) return;
+  if (!el.value.endsWith(code)) return;
+  // Use the native setter + an input event so React's controlled state sees the change.
+  const proto = el instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
+  Object.getOwnPropertyDescriptor(proto, 'value')?.set?.call(el, el.value.slice(0, -code.length));
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+};
+
+export const startKeyboardWedge = (onScan: ScanCallback, shouldCapture: () => boolean) => {
+  let buffer = '';
+  let lastKeyTs = 0;
+
+  const onKeyDown = (event: KeyboardEvent) => {
+    if (IGNORED_KEYS.has(event.key)) return;
+    const now = performance.now();
+    const gap = now - lastKeyTs;
+    lastKeyTs = now;
+
+    const active = document.activeElement;
+    if (event.ctrlKey || event.altKey || event.metaKey || active?.closest(`[${SCANNER_INPUT_ATTR}]`)) {
+      buffer = '';
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      const code = buffer;
+      buffer = '';
+      if (code.length >= WEDGE_MIN_LENGTH && gap <= WEDGE_MAX_KEY_INTERVAL_MS && shouldCapture()) {
+        event.preventDefault();
+        event.stopPropagation();
+        removeTypedSuffix(active, code);
+        onScan(code);
+      }
+      return;
+    }
+
+    if (event.key.length !== 1) {
+      buffer = '';
+      return;
+    }
+    if (gap > WEDGE_MAX_KEY_INTERVAL_MS) buffer = '';
+    buffer += event.key;
+  };
+
+  window.addEventListener('keydown', onKeyDown, true);
+  return () => window.removeEventListener('keydown', onKeyDown, true);
+};
