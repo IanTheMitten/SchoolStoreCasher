@@ -78,6 +78,7 @@ export const salesAPI = {
     customerName?: string | null;
     items: Array<{ productId: string; quantity: number; unitPrice?: number; unitCostAtSale?: number }>;
     paymentMethod: 'cash' | 'card';
+    walletPaid?: number;
     timestamp?: string;
   }) => {
     return localDb.createTransaction(sale);
@@ -86,6 +87,13 @@ export const salesAPI = {
   getAll: async (filters?: { customerType?: 'student' | 'teacher' | 'grade'; customerId?: string; studentId?: string; start?: string; end?: string }) => {
     return localDb.getAllTransactions(filters as any);
   },
+};
+
+// Student wallet API (charged cash + cashback share one balance)
+export const walletAPI = {
+  getBalances: async () => localDb.getWalletBalances(),
+  getEntries: async (studentId?: string) => localDb.getWalletEntries(studentId),
+  charge: async (studentId: string, amount: number) => localDb.chargeWallet(studentId, amount),
 };
 
 // Grades API

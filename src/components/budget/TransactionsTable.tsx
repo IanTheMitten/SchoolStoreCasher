@@ -30,6 +30,7 @@ export function TransactionsTable({ transactions, students = [], teachers = [] }
     switch (method) {
       case 'cash': return 'Cash';
       case 'card': return 'Card';
+      case 'wallet': return 'Wallet';
       case 'student_id': return 'Student ID';
       default: return method;
     }

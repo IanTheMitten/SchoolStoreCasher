@@ -55,6 +55,7 @@ const LABELS: Record<string, string> = {
   expenses: 'Expenses',
   categories: 'Categories',
   inventoryAdjustments: 'Stock adjustments',
+  walletEntries: 'Wallet entries',
 };
 
 interface BackupRestoreDialogProps {

@@ -10,10 +10,12 @@ interface CashierPageProps {
   products: Product[];
   students: Student[];
   teachers?: Teacher[];
-  onAddTransaction: (transaction: Transaction) => Promise<void>;
+  walletBalances: Record<string, number>;
+  onAddTransaction: (transaction: Transaction) => Promise<Transaction>;
+  onChargeWallet: (studentId: string, amount: number) => Promise<number>;
 }
 
-export function CashierPage({ products, students, teachers = [], onAddTransaction }: CashierPageProps) {
+export function CashierPage({ products, students, teachers = [], walletBalances, onAddTransaction, onChargeWallet }: CashierPageProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -139,8 +141,8 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
 
   const handleCompleteTransaction = async (transaction: Transaction) => {
     try {
-      await onAddTransaction(transaction);
-      setCompletedTransaction(transaction);
+      const saved = await onAddTransaction(transaction);
+      setCompletedTransaction(saved);
       setCart([]);
       toast.success('Transaction completed successfully!');
     } catch (error) {
@@ -190,9 +192,11 @@ export function CashierPage({ products, students, teachers = [], onAddTransactio
           cart={cart}
           students={students}
           teachers={teachers}
+          walletBalances={walletBalances}
           onUpdateQuantity={handleUpdateQuantity}
           onRemoveFromCart={handleRemoveFromCart}
           onCompleteTransaction={handleCompleteTransaction}
+          onChargeWallet={onChargeWallet}
         />
       </div>
 

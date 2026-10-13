@@ -1,7 +1,7 @@
 import type { Product, Student } from '../App';
 
 const DB_NAME = 'schoolstore-db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 const STORE_PRODUCTS = 'products';
 const STORE_STUDENTS = 'students';
 const STORE_TEACHERS = 'teachers';
@@ -9,6 +9,7 @@ const STORE_TRANSACTIONS = 'transactions';
 const STORE_EXPENSES = 'expenses';
 const STORE_CATEGORIES = 'categories';
 const STORE_INVENTORY_ADJUSTMENTS = 'inventoryAdjustments';
+const STORE_WALLET = 'walletEntries';
 
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -23,6 +24,7 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_TRANSACTIONS)) db.createObjectStore(STORE_TRANSACTIONS, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(STORE_EXPENSES)) db.createObjectStore(STORE_EXPENSES, { keyPath: 'id' });
       if (!db.objectStoreNames.contains(STORE_INVENTORY_ADJUSTMENTS)) db.createObjectStore(STORE_INVENTORY_ADJUSTMENTS, { keyPath: 'id' });
+      if (!db.objectStoreNames.contains(STORE_WALLET)) db.createObjectStore(STORE_WALLET, { keyPath: 'id' });
     };
     request.onsuccess = () => resolve(request.result);
   });
@@ -121,6 +123,38 @@ const getAllPeopleForBarcodes = async (tx: IDBTransaction) => {
   return [...students, ...teachers] as Array<{ id?: string; barcode?: string }>;
 };
 
+// Student wallet: one pool per student holding charged cash and cashback points alike.
+// The balance is the sum of the student's ledger entries (charge/cashback +, payment -).
+export type WalletEntryType = 'charge' | 'payment' | 'cashback';
+
+export interface WalletEntry {
+  id: string;
+  studentId: string;
+  date: string;
+  type: WalletEntryType;
+  amount: number;
+  transactionId?: string;
+}
+
+export const WALLET_STEP = 100; // charges and wallet payments only in multiples of this
+export const CASHBACK_PERCENT = 2;
+
+// Whole currency units, rounded down (integer math avoids 0.02 float drift).
+export const cashbackFor = (total: number) => Math.max(0, Math.floor((total * CASHBACK_PERCENT) / 100));
+
+const createWalletEntry = (entry: Omit<WalletEntry, 'id' | 'date'> & { date?: string }): WalletEntry => ({
+  id: `WAL-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  date: entry.date || new Date().toISOString(),
+  ...entry,
+});
+
+const isWalletStep = (amount: number) => Number.isInteger(amount) && amount % WALLET_STEP === 0;
+
+const walletBalanceIn = async (tx: IDBTransaction, studentId: string) => {
+  const entries = await reqToPromise(tx.objectStore(STORE_WALLET).getAll()) as WalletEntry[];
+  return entries.reduce((sum, e) => (e.studentId === studentId ? sum + Number(e.amount || 0) : sum), 0);
+};
+
 const BACKUP_APP_NAME = 'SchoolStoreCasher';
 const ALL_STORES = [
   STORE_PRODUCTS,
@@ -130,7 +164,14 @@ const ALL_STORES = [
   STORE_EXPENSES,
   STORE_CATEGORIES,
   STORE_INVENTORY_ADJUSTMENTS,
+  STORE_WALLET,
 ] as const;
+
+// Stores added after schema 1, with the version that introduced them. Older backups
+// (and older data/db.json files) simply don't have them, so they restore as empty.
+const STORES_ADDED_IN: Partial<Record<typeof ALL_STORES[number], number>> = {
+  [STORE_WALLET]: 4,
+};
 
 export type BackupStoreName = typeof ALL_STORES[number];
 
@@ -188,6 +229,12 @@ const validateSnapshot = (snapshot: any): BackupSnapshot => {
   }
   if (!snapshot.data || typeof snapshot.data !== 'object') {
     throw new Error('Invalid backup file: missing data.');
+  }
+  for (const name of ALL_STORES) {
+    const addedIn = STORES_ADDED_IN[name];
+    if (addedIn && snapshot.schemaVersion < addedIn && snapshot.data[name] === undefined) {
+      snapshot = { ...snapshot, data: { ...snapshot.data, [name]: [] } };
+    }
   }
   for (const name of ALL_STORES) {
     const rows = snapshot.data[name];
@@ -482,10 +529,23 @@ export const localDb = {
     const saleItems = sale.items || [];
     const total = (sale.items || []).reduce((sum: number, it: any) => sum + (it.unitPrice || 0) * (it.quantity || 0), 0);
 
-    const ttx = db.transaction([STORE_TRANSACTIONS, STORE_PRODUCTS, STORE_STUDENTS, STORE_INVENTORY_ADJUSTMENTS], 'readwrite');
+    const ttx = db.transaction([STORE_TRANSACTIONS, STORE_PRODUCTS, STORE_STUDENTS, STORE_INVENTORY_ADJUSTMENTS, STORE_WALLET], 'readwrite');
     const transStore = ttx.objectStore(STORE_TRANSACTIONS);
     const prodStore = ttx.objectStore(STORE_PRODUCTS);
     const adjustmentStore = ttx.objectStore(STORE_INVENTORY_ADJUSTMENTS);
+    const walletStore = ttx.objectStore(STORE_WALLET);
+
+    const isStudentSale = sale.customerType === 'student' && Boolean(sale.customerId);
+    const walletPaid = Number(sale.walletPaid || 0);
+    if (walletPaid < 0 || !isWalletStep(walletPaid)) {
+      throw new Error(`Wallet payments must be in steps of ${WALLET_STEP}.`);
+    }
+    if (walletPaid > 0) {
+      if (!isStudentSale) throw new Error('Only students can pay from a wallet.');
+      if (walletPaid > total) throw new Error('Wallet payment is larger than the total.');
+      const balance = await walletBalanceIn(ttx, String(sale.customerId));
+      if (walletPaid > balance) throw new Error('Not enough wallet balance.');
+    }
 
     const productsById = new Map<string, any>();
 
@@ -515,18 +575,29 @@ export const localDb = {
     }
 
     const id = `tx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const timestamp = sale.timestamp || new Date().toISOString();
+    const cashbackEarned = isStudentSale ? cashbackFor(total) : 0;
     const transaction = {
       id,
-      timestamp: sale.timestamp || new Date().toISOString(),
+      timestamp,
       items: sale.items || [],
       total,
-      paymentMethod: sale.paymentMethod,
+      paymentMethod: walletPaid > 0 && walletPaid >= total ? 'wallet' : sale.paymentMethod,
       customerType: sale.customerType ?? null,
       customerId: sale.customerId ?? sale.studentId ?? null,
       customerName: sale.customerName ?? sale.studentName ?? null,
+      walletPaid,
+      cashPaid: total - walletPaid,
+      cashbackEarned,
     };
 
     transStore.put(transaction);
+    if (walletPaid > 0) {
+      walletStore.put(createWalletEntry({ studentId: String(sale.customerId), type: 'payment', amount: -walletPaid, transactionId: id, date: timestamp }));
+    }
+    if (cashbackEarned > 0) {
+      walletStore.put(createWalletEntry({ studentId: String(sale.customerId), type: 'cashback', amount: cashbackEarned, transactionId: id, date: timestamp }));
+    }
     return new Promise(resolve => { ttx.oncomplete = () => resolve({ ok: true, transaction }); });
   },
   getAllTransactions: async (filters?: any) => {
@@ -596,6 +667,38 @@ export const localDb = {
     return new Promise(resolve => { tx.oncomplete = () => resolve({ success: true }); });
   },
 
+  getWalletEntries: async (studentId?: string): Promise<WalletEntry[]> => {
+    const db = await openDB();
+    const tx = db.transaction(STORE_WALLET, 'readonly');
+    const all = await reqToPromise(tx.objectStore(STORE_WALLET).getAll()) as WalletEntry[];
+    return all
+      .filter(e => !studentId || e.studentId === studentId)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  },
+  getWalletBalances: async (): Promise<Record<string, number>> => {
+    const entries = await localDb.getWalletEntries();
+    const balances: Record<string, number> = {};
+    for (const e of entries) balances[e.studentId] = (balances[e.studentId] || 0) + Number(e.amount || 0);
+    return balances;
+  },
+  // Cash handed over to load a student's wallet. Not revenue: it counts when spent.
+  chargeWallet: async (studentId: string, amount: number) => {
+    if (!(amount > 0) || !isWalletStep(amount)) {
+      throw new Error(`Charge amount must be a positive multiple of ${WALLET_STEP}.`);
+    }
+    const db = await openDB();
+    const tx = db.transaction([STORE_STUDENTS, STORE_WALLET], 'readwrite');
+    const student = await reqToPromise(tx.objectStore(STORE_STUDENTS).get(studentId));
+    if (!student) throw new Error('Student not found');
+    const entry = createWalletEntry({ studentId, type: 'charge', amount });
+    tx.objectStore(STORE_WALLET).put(entry);
+    const balance = (await walletBalanceIn(tx, studentId));
+    return new Promise<{ entry: WalletEntry; balance: number }>((resolve, reject) => {
+      tx.oncomplete = () => resolve({ entry, balance });
+      tx.onabort = () => reject(tx.error || new Error('Charge failed.'));
+    });
+  },
+
   // Bulk student import (CSV). 'replace' removes students not in the file; 'add' keeps them.
   // Either way a row whose barcode matches an existing student updates that student in place
   // (same id), so their purchase history stays linked.
@@ -662,6 +765,7 @@ const MUTATING_METHODS = [
   'createTeacher', 'updateTeacher', 'deleteTeacher',
   'createCategory', 'updateCategory', 'deleteCategory',
   'createTransaction',
+  'chargeWallet',
   'createExpense', 'deleteExpense',
 ] as const satisfies ReadonlyArray<keyof typeof localDb>;
 
