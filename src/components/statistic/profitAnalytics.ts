@@ -1,6 +1,7 @@
 // Pure aggregation helpers for the Statistic page (profit, series, comparisons).
 // No React / DOM access so everything here can be unit-checked in isolation.
 import type { Expense, Product, Transaction } from '../../App';
+import { cashbackOf } from '../../utils/revenue';
 import { toDayKey, parseDayKey } from '../analytics/sharedAggregation';
 
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -74,7 +75,8 @@ export function buildCostMap(products: Product[]): Map<string, number> {
 }
 
 export interface Summary {
-  revenue: number;
+  revenue: number; // net of wallet cashback
+  cashback: number;
   cost: number;
   profit: number;
   marginPct: number | null; // null when revenue is 0
@@ -91,7 +93,9 @@ export function summarize(transactions: Transaction[], catalogCostById?: Map<str
   let itemsSold = 0;
   let unknownCostLines = 0;
   let totalLines = 0;
+  let cashback = 0;
   for (const tx of transactions) {
+    cashback += cashbackOf(tx);
     for (const item of tx.items ?? []) {
       const l = lineEconomics(item, catalogCostById);
       revenue += l.revenue;
@@ -101,10 +105,13 @@ export function summarize(transactions: Transaction[], catalogCostById?: Map<str
       if (!l.costKnown) unknownCostLines += 1;
     }
   }
+  // Cashback handed back to students is money the store gives away, so it comes off revenue.
+  revenue -= cashback;
   const profit = revenue - cost;
   const n = transactions.length;
   return {
     revenue,
+    cashback,
     cost,
     profit,
     marginPct: revenue > 0 ? (profit / revenue) * 100 : null,
@@ -211,6 +218,7 @@ export function seriesByGranularity(
       entry.revenue += l.revenue;
       entry.cost += l.cost;
     }
+    entry.revenue -= cashbackOf(tx);
     entry.transactions += 1;
     map.set(key, entry);
   }

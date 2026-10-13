@@ -1,4 +1,5 @@
 import type { Student, Transaction } from '../../App';
+import { netRevenue } from '../../utils/revenue';
 import { CANONICAL_TIME_PERIODS, getPeriodIdForTimestamp } from './timePeriodAnalytics';
 import {
   aggregateWeekdayRevenueFromTransactions,
@@ -60,7 +61,7 @@ export function topDaysByRevenue(transactions: Transaction[], limit = 5): TopRev
   for (const transaction of transactions) {
     const dayKey = toLocalDayKey(transaction.timestamp);
     const existing = dayTotals.get(dayKey) ?? { dayKey, revenue: 0, txCount: 0 };
-    existing.revenue += transaction.total;
+    existing.revenue += netRevenue(transaction);
     existing.txCount += 1;
     dayTotals.set(dayKey, existing);
   }
@@ -87,7 +88,7 @@ export function revenueByTimePeriod(transactions: Transaction[]): TimePeriodReve
       continue;
     }
 
-    totalsByPeriod.set(periodId, (totalsByPeriod.get(periodId) ?? 0) + transaction.total);
+    totalsByPeriod.set(periodId, (totalsByPeriod.get(periodId) ?? 0) + netRevenue(transaction));
     countByPeriod.set(periodId, (countByPeriod.get(periodId) ?? 0) + 1);
   }
 

@@ -99,6 +99,9 @@ export function ProfitSection({ transactions, products, expenses, bounds, rangeD
             <Row label="Profit after other expenses" value={money(profitAfterOther)} strong tone={profitAfterOther} />
             <div className="pt-3" />
             <Row label="Revenue" value={money(summary.revenue)} />
+            {summary.cashback > 0 && (
+              <Row label="Wallet cashback (already taken off revenue)" value={money(summary.cashback)} />
+            )}
             <Row label="All expenses incl. restocking" value={`− ${money(expenseSummary.total)}`} />
             <Row label="Cash result in this range" value={money(cashResult)} strong tone={cashResult} />
           </dl>

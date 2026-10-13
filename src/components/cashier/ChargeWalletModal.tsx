@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import type { Student } from '../../App';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useScanner } from '../../contexts/ScannerContext';
-import { WALLET_STEP } from '../../services/localDb';
+import { WALLET_STEP, MAX_CHARGE } from '../../services/localDb';
 
 interface ChargeWalletModalProps {
   students: Student[];
@@ -34,18 +34,20 @@ export function ChargeWalletModal({ students, walletBalances, onCharge, onClose 
 
     const matches = students.filter(s => (s.barcode || '').trim().toLowerCase() === normalizedBarcode);
     if (matches.length === 1) {
+      // A different student means the typed amount was meant for someone else.
+      if (student?.id !== matches[0].id) setAmount(0);
       setStudent(matches[0]);
       return;
     }
     toast.error(matches.length > 1 ? 'Duplicate student barcode. Fix it on the People page.' : 'Student barcode not found');
-  }, [students]);
+  }, [students, student]);
 
   useEffect(() => {
     registerHandler({ id: 'wallet-charge-scanner', handler: handleBarcodeMatch, priority: 20 });
     return () => unregisterHandler('wallet-charge-scanner');
   }, [registerHandler, unregisterHandler, handleBarcodeMatch]);
 
-  const validAmount = amount > 0 && Number.isInteger(amount) && amount % WALLET_STEP === 0;
+  const validAmount = amount > 0 && amount <= MAX_CHARGE && Number.isInteger(amount) && amount % WALLET_STEP === 0;
   const balance = student ? walletBalances[student.id] || 0 : 0;
 
   const handleCharge = async () => {
@@ -98,8 +100,8 @@ export function ChargeWalletModal({ students, walletBalances, onCharge, onClose 
                 id="charge-amount"
                 type="number"
                 autoFocus
-                data-scanner-input
                 min={WALLET_STEP}
+                max={MAX_CHARGE}
                 step={WALLET_STEP}
                 value={amount || ''}
                 disabled={isSubmitting}
@@ -111,7 +113,9 @@ export function ChargeWalletModal({ students, walletBalances, onCharge, onClose 
                   }
                 }}
               />
-              {amount > 0 && !validAmount && (
+              {amount > MAX_CHARGE ? (
+                <div className="text-red-600 text-sm mt-1">At most {formatCurrency(MAX_CHARGE)} per charge.</div>
+              ) : amount > 0 && !validAmount && (
                 <div className="text-red-600 text-sm mt-1">Use a multiple of {formatCurrency(WALLET_STEP)}.</div>
               )}
               <div className="flex gap-2 mt-2">
@@ -126,7 +130,7 @@ export function ChargeWalletModal({ students, walletBalances, onCharge, onClose 
             <Button className="w-full" disabled={isSubmitting || !validAmount} onClick={handleCharge}>
               Charge {validAmount ? formatCurrency(amount) : ''}
             </Button>
-            <Button variant="ghost" className="w-full" disabled={isSubmitting} onClick={() => setStudent(null)}>
+            <Button variant="ghost" className="w-full" disabled={isSubmitting} onClick={() => { setStudent(null); setAmount(0); }}>
               Back
             </Button>
           </div>

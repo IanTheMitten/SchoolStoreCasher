@@ -138,6 +138,7 @@ export interface WalletEntry {
 
 export const WALLET_STEP = 100; // charges and wallet payments only in multiples of this
 export const CASHBACK_PERCENT = 2;
+export const MAX_CHARGE = 100000; // sanity cap per charge; guards against mistyped or scanned-in amounts
 
 // Whole currency units, rounded down (integer math avoids 0.02 float drift).
 export const cashbackFor = (total: number) => Math.max(0, Math.floor((total * CASHBACK_PERCENT) / 100));
@@ -530,75 +531,89 @@ export const localDb = {
     const total = (sale.items || []).reduce((sum: number, it: any) => sum + (it.unitPrice || 0) * (it.quantity || 0), 0);
 
     const ttx = db.transaction([STORE_TRANSACTIONS, STORE_PRODUCTS, STORE_STUDENTS, STORE_INVENTORY_ADJUSTMENTS, STORE_WALLET], 'readwrite');
-    const transStore = ttx.objectStore(STORE_TRANSACTIONS);
-    const prodStore = ttx.objectStore(STORE_PRODUCTS);
-    const adjustmentStore = ttx.objectStore(STORE_INVENTORY_ADJUSTMENTS);
-    const walletStore = ttx.objectStore(STORE_WALLET);
+    // Any error must abort the whole IndexedDB transaction; otherwise puts already queued
+    // (e.g. stock for earlier cart items) would still commit without the sale record.
+    const committed = new Promise<void>((resolve, reject) => {
+      ttx.oncomplete = () => resolve();
+      ttx.onabort = () => reject(ttx.error || new Error('Sale failed and was rolled back.'));
+    });
+    committed.catch(() => {}); // the caller sees the original error below
+    let transaction: any;
+    try {
+      const transStore = ttx.objectStore(STORE_TRANSACTIONS);
+      const prodStore = ttx.objectStore(STORE_PRODUCTS);
+      const adjustmentStore = ttx.objectStore(STORE_INVENTORY_ADJUSTMENTS);
+      const walletStore = ttx.objectStore(STORE_WALLET);
 
-    const isStudentSale = sale.customerType === 'student' && Boolean(sale.customerId);
-    const walletPaid = Number(sale.walletPaid || 0);
-    if (walletPaid < 0 || !isWalletStep(walletPaid)) {
-      throw new Error(`Wallet payments must be in steps of ${WALLET_STEP}.`);
-    }
-    if (walletPaid > 0) {
-      if (!isStudentSale) throw new Error('Only students can pay from a wallet.');
-      if (walletPaid > total) throw new Error('Wallet payment is larger than the total.');
-      const balance = await walletBalanceIn(ttx, String(sale.customerId));
-      if (walletPaid > balance) throw new Error('Not enough wallet balance.');
-    }
-
-    const productsById = new Map<string, any>();
-
-    for (const item of saleItems) {
-      let product = productsById.get(item.productId);
-      if (!product) {
-        product = await reqToPromise(prodStore.get(item.productId)) as any;
-        if (!product) throw new Error('Product not found');
-        productsById.set(item.productId, product);
+      const isStudentSale = sale.customerType === 'student' && Boolean(sale.customerId);
+      const walletPaid = Number(sale.walletPaid || 0);
+      if (walletPaid < 0 || !isWalletStep(walletPaid)) {
+        throw new Error(`Wallet payments must be in steps of ${WALLET_STEP}.`);
+      }
+      if (walletPaid > 0) {
+        if (!isStudentSale) throw new Error('Only students can pay from a wallet.');
+        if (walletPaid > total) throw new Error('Wallet payment is larger than the total.');
+        const balance = await walletBalanceIn(ttx, String(sale.customerId));
+        if (walletPaid > balance) throw new Error('Not enough wallet balance.');
       }
 
-      const quantity = item.quantity || 0;
-      const newStock = (product.stock || 0) - quantity;
-      if (newStock < 0) throw new Error('Stock cannot be negative');
+      const productsById = new Map<string, any>();
 
-      product.stock = newStock;
-      prodStore.put(product);
+      for (const item of saleItems) {
+        let product = productsById.get(item.productId);
+        if (!product) {
+          product = await reqToPromise(prodStore.get(item.productId)) as any;
+          if (!product) throw new Error('Product not found');
+          productsById.set(item.productId, product);
+        }
 
-      adjustmentStore.put(createInventoryAdjustment({
-        productId: item.productId,
-        quantity: -quantity,
-        reason: 'sale',
-        reference: '',
-        user: 'system',
-        date: sale.timestamp || new Date().toISOString(),
-      }));
+        const quantity = item.quantity || 0;
+        const newStock = (product.stock || 0) - quantity;
+        if (newStock < 0) throw new Error('Stock cannot be negative');
+
+        product.stock = newStock;
+        prodStore.put(product);
+
+        adjustmentStore.put(createInventoryAdjustment({
+          productId: item.productId,
+          quantity: -quantity,
+          reason: 'sale',
+          reference: '',
+          user: 'system',
+          date: sale.timestamp || new Date().toISOString(),
+        }));
+      }
+
+      const id = `tx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+      const timestamp = sale.timestamp || new Date().toISOString();
+      const cashbackEarned = isStudentSale ? cashbackFor(total) : 0;
+      transaction = {
+        id,
+        timestamp,
+        items: sale.items || [],
+        total,
+        paymentMethod: walletPaid > 0 && walletPaid >= total ? 'wallet' : sale.paymentMethod,
+        customerType: sale.customerType ?? null,
+        customerId: sale.customerId ?? sale.studentId ?? null,
+        customerName: sale.customerName ?? sale.studentName ?? null,
+        walletPaid,
+        cashPaid: total - walletPaid,
+        cashbackEarned,
+      };
+
+      transStore.put(transaction);
+      if (walletPaid > 0) {
+        walletStore.put(createWalletEntry({ studentId: String(sale.customerId), type: 'payment', amount: -walletPaid, transactionId: id, date: timestamp }));
+      }
+      if (cashbackEarned > 0) {
+        walletStore.put(createWalletEntry({ studentId: String(sale.customerId), type: 'cashback', amount: cashbackEarned, transactionId: id, date: timestamp }));
+      }
+    } catch (err) {
+      try { ttx.abort(); } catch {}
+      throw err;
     }
-
-    const id = `tx-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-    const timestamp = sale.timestamp || new Date().toISOString();
-    const cashbackEarned = isStudentSale ? cashbackFor(total) : 0;
-    const transaction = {
-      id,
-      timestamp,
-      items: sale.items || [],
-      total,
-      paymentMethod: walletPaid > 0 && walletPaid >= total ? 'wallet' : sale.paymentMethod,
-      customerType: sale.customerType ?? null,
-      customerId: sale.customerId ?? sale.studentId ?? null,
-      customerName: sale.customerName ?? sale.studentName ?? null,
-      walletPaid,
-      cashPaid: total - walletPaid,
-      cashbackEarned,
-    };
-
-    transStore.put(transaction);
-    if (walletPaid > 0) {
-      walletStore.put(createWalletEntry({ studentId: String(sale.customerId), type: 'payment', amount: -walletPaid, transactionId: id, date: timestamp }));
-    }
-    if (cashbackEarned > 0) {
-      walletStore.put(createWalletEntry({ studentId: String(sale.customerId), type: 'cashback', amount: cashbackEarned, transactionId: id, date: timestamp }));
-    }
-    return new Promise(resolve => { ttx.oncomplete = () => resolve({ ok: true, transaction }); });
+    await committed;
+    return { ok: true, transaction };
   },
   getAllTransactions: async (filters?: any) => {
     const db = await openDB();
@@ -685,6 +700,9 @@ export const localDb = {
   chargeWallet: async (studentId: string, amount: number) => {
     if (!(amount > 0) || !isWalletStep(amount)) {
       throw new Error(`Charge amount must be a positive multiple of ${WALLET_STEP}.`);
+    }
+    if (amount > MAX_CHARGE) {
+      throw new Error(`A single charge can be at most ${MAX_CHARGE}.`);
     }
     const db = await openDB();
     const tx = db.transaction([STORE_STUDENTS, STORE_WALLET], 'readwrite');

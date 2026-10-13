@@ -205,7 +205,6 @@ export function CashPaymentModal({
                 <Input
                   id="wallet-amount"
                   type="number"
-                  data-scanner-input
                   min={0}
                   max={maxWallet}
                   step={WALLET_STEP}
