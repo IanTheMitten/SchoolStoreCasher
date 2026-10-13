@@ -3,6 +3,7 @@ import { Card } from '../ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction, Expense } from '../../App';
+import { netRevenue } from '../../utils/revenue';
 
 interface RevenueChartProps {
   transactions: Transaction[];
@@ -36,7 +37,7 @@ export function RevenueChart({ transactions, expenses, dateRange }: RevenueChart
     transactions.forEach(t => {
       const dayKey = getDayKey(t.timestamp);
       const existing = dataMap.get(dayKey) || { dateLabel: getDateLabel(t.timestamp), revenue: 0, expenses: 0 };
-      dataMap.set(dayKey, { ...existing, revenue: existing.revenue + t.total });
+      dataMap.set(dayKey, { ...existing, revenue: existing.revenue + netRevenue(t) });
     });
     
     // Add expenses

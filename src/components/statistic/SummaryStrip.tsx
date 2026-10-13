@@ -29,7 +29,7 @@ export function SummaryStrip({ current, previous, previousLabel }: Props) {
     previous && current.marginPct !== null && previous.marginPct !== null ? current.marginPct - previous.marginPct : null;
 
   const tiles = [
-    { label: 'Revenue', hint: 'Money taken in', value: formatCurrency(current.revenue), delta: <Delta change={ch(current.revenue, previous?.revenue)} /> },
+    { label: 'Revenue', hint: 'Money taken in, minus wallet cashback', value: formatCurrency(current.revenue), delta: <Delta change={ch(current.revenue, previous?.revenue)} /> },
     { label: 'Profit', hint: 'Revenue minus what the items cost', value: formatCurrency(current.profit), delta: <Delta change={ch(current.profit, previous?.profit)} /> },
     { label: 'Margin', hint: 'Profit as a share of revenue', value: formatPct(current.marginPct, 1), delta: <Delta change={marginChange} pointsMode /> },
     { label: 'Transactions', hint: 'Number of sales', value: current.transactions.toLocaleString(), delta: <Delta change={ch(current.transactions, previous?.transactions)} /> },

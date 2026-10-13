@@ -2,6 +2,7 @@ import { DollarSign, TrendingDown, TrendingUp, ShoppingCart } from 'lucide-react
 import { Card } from '../ui/card';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import type { Transaction, Expense } from '../../App';
+import { netRevenue } from '../../utils/revenue';
 
 interface KPICardsProps {
   transactions: Transaction[];
@@ -10,7 +11,7 @@ interface KPICardsProps {
 
 export function KPICards({ transactions, expenses }: KPICardsProps) {
   const { formatCurrency } = useCurrency();
-  const totalRevenue = transactions.reduce((sum, t) => sum + t.total, 0);
+  const totalRevenue = transactions.reduce((sum, t) => sum + netRevenue(t), 0);
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const netProfit = totalRevenue - totalExpenses;
   const transactionCount = transactions.length;
