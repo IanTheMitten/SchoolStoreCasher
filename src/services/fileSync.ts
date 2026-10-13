@@ -55,10 +55,10 @@ const scheduleSave = () => {
   if (!flushing) flushing = flush();
 };
 
-// Sales and stock movements are append-only, so they decide; total record count breaks ties.
+// Sales, stock movements and wallet entries are append-only, so they decide; total record count breaks ties.
 const dataSize = (snapshot: BackupSnapshot) => {
   const d = snapshot.data;
-  const history = d.transactions.length + d.inventoryAdjustments.length;
+  const history = d.transactions.length + d.inventoryAdjustments.length + d.walletEntries.length;
   const total = Object.values(d).reduce((sum, rows) => sum + rows.length, 0);
   return { history, total };
 };

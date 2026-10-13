@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Minus, Plus, X } from 'lucide-react';
+import { Minus, Plus, Wallet, X } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { CashPaymentModal } from './CashPaymentModal';
+import { ChargeWalletModal } from './ChargeWalletModal';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { roundMoney } from '../../utils/formatCurrency';
 import type { CartItem, Student, Teacher, Transaction } from '../../App';
@@ -11,9 +12,11 @@ interface CartSectionProps {
   cart: CartItem[];
   students: Student[];
   teachers?: Teacher[];
+  walletBalances: Record<string, number>;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveFromCart: (productId: string) => void;
   onCompleteTransaction: (transaction: Transaction) => Promise<void>;
+  onChargeWallet: (studentId: string, amount: number) => Promise<number>;
 }
 
 const TAX_RATE = 0.0; // Set to 0 for no tax, or e.g., 0.08 for 8%
@@ -22,11 +25,14 @@ export function CartSection({
   cart,
   students,
   teachers = [],
+  walletBalances,
   onUpdateQuantity,
   onRemoveFromCart,
-  onCompleteTransaction
+  onCompleteTransaction,
+  onChargeWallet
 }: CartSectionProps) {
   const [paymentMode, setPaymentMode] = useState<'cash' | null>(null);
+  const [isCharging, setIsCharging] = useState(false);
   const { formatCurrency } = useCurrency();
 
   const rawSubtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -142,6 +148,14 @@ export function CartSection({
         >
           Purchase
         </Button>
+        <Button
+          onClick={() => setIsCharging(true)}
+          className="w-full"
+          variant="ghost"
+        >
+          <Wallet className="size-4 mr-2" />
+          Charge student wallet
+        </Button>
       </div>
 
       {/* Cash Payment Modal */}
@@ -153,8 +167,18 @@ export function CartSection({
           cart={cart}
           students={students}
           teachers={teachers}
+          walletBalances={walletBalances}
           onComplete={handlePaymentComplete}
           onClose={() => setPaymentMode(null)}
+        />
+      )}
+
+      {isCharging && (
+        <ChargeWalletModal
+          students={students}
+          walletBalances={walletBalances}
+          onCharge={onChargeWallet}
+          onClose={() => setIsCharging(false)}
         />
       )}
     </div>

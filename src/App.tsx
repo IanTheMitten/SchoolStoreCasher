@@ -7,7 +7,7 @@ import { InventoryPage } from './components/inventory/InventoryPage';
 import { BudgetPage } from './components/budget/BudgetPage';
 import { PeoplePage } from './components/people/PeoplePage';
 import { StatisticPage } from './components/statistic/StatisticPage';
-import { productsAPI, studentsAPI, salesAPI, expensesAPI, teachersAPI, categoriesAPI } from './services/api';
+import { productsAPI, studentsAPI, salesAPI, expensesAPI, teachersAPI, categoriesAPI, walletAPI } from './services/api';
 import { localDb } from './services/localDb';
 import type { StudentImportMode } from './services/localDb';
 import { fileSync } from './services/fileSync';
@@ -56,13 +56,18 @@ export interface Transaction {
   subtotal: number;
   tax: number;
   total: number;
-  paymentMethod: 'cash' | 'card';
+  // 'wallet' = fully paid from the student's wallet; a split payment stays 'cash' with walletPaid > 0.
+  paymentMethod: 'cash' | 'card' | 'wallet';
   // 'grade' is a temporary shortcut: customerId/customerName hold the grade label.
   customerType?: 'student' | 'teacher' | 'grade';
   customerId?: string;
   customerName?: string;
   cashReceived?: number;
   change?: number;
+  walletPaid?: number;
+  cashPaid?: number;
+  cashbackEarned?: number;
+  walletBalanceAfter?: number;
 }
 
 export interface StockAdjustment {
@@ -111,6 +116,7 @@ export default function App() {
   const [categories, setCategories] = useState<any[]>([]);
   const [stockHistory, setStockHistory] = useState<StockAdjustment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [walletBalances, setWalletBalances] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const lastActivityAtRef = useRef(Date.now());
 
@@ -209,14 +215,17 @@ export default function App() {
         setLoading(true);
         // Load data/db.json into IndexedDB (or seed it) before reading anything.
         await fileSync.init();
-        const [productsData, studentsData, transactionsData, expensesData, teachersData, categoriesData] = await Promise.all([
+        const [productsData, studentsData, transactionsData, expensesData, teachersData, categoriesData, balancesData] = await Promise.all([
           productsAPI.getAll(),
           studentsAPI.getAll(),
           salesAPI.getAll(),
           expensesAPI.getAll(),
           teachersAPI.getAll(),
           categoriesAPI.getAll(),
+          walletAPI.getBalances(),
         ]);
+
+        setWalletBalances(balancesData);
 
         // Transform API data to match frontend types
         setProducts((productsData as any[]).map(p => ({
@@ -286,7 +295,7 @@ export default function App() {
     fetchData();
   }, [normalizeTransactionCustomer]);
 
-  const handleAddTransaction = async (transaction: Transaction) => {
+  const handleAddTransaction = async (transaction: Transaction): Promise<Transaction> => {
     if (!transaction.customerType || !transaction.customerId) {
       throw new Error('Please associate the sale with a customer before completing the transaction.');
     }
@@ -309,7 +318,8 @@ export default function App() {
         unitPrice: item.product.price,
         unitCostAtSale: item.product.unitCost,
       })),
-      paymentMethod: transaction.paymentMethod,
+      paymentMethod: transaction.paymentMethod === 'wallet' ? 'cash' as const : transaction.paymentMethod,
+      walletPaid: transaction.walletPaid || 0,
       timestamp: transaction.timestamp.toISOString(),
     };
 
@@ -351,7 +361,16 @@ export default function App() {
         total: result.transaction.total,
         paymentMethod: result.transaction.paymentMethod as any,
         ...normalizeTransactionCustomer(result.transaction),
+        walletPaid: result.transaction.walletPaid,
+        cashPaid: result.transaction.cashPaid,
+        cashbackEarned: result.transaction.cashbackEarned,
       };
+
+      const balances = await walletAPI.getBalances();
+      setWalletBalances(balances);
+      if (newTransaction.customerType === 'student' && newTransaction.customerId) {
+        newTransaction.walletBalanceAfter = balances[newTransaction.customerId] || 0;
+      }
 
       setTransactions((prev: Transaction[]) => [newTransaction, ...prev]);
 
@@ -363,10 +382,18 @@ export default function App() {
         reorderLevel: p.reorder_level || 0,
         lastRestock: p.lastRestock ? new Date(p.lastRestock) : undefined,
       })));
+
+      return newTransaction;
     } catch (error: any) {
       console.error('Error creating transaction:', error);
       throw new Error(error?.message || 'Failed to complete transaction');
     }
+  };
+
+  const handleChargeWallet = async (studentId: string, amount: number) => {
+    const { balance } = await walletAPI.charge(studentId, amount);
+    setWalletBalances(prev => ({ ...prev, [studentId]: balance }));
+    return balance;
   };
 
   const handleUpdateProducts = async (updatedProducts: Product[]) => {
@@ -698,7 +725,9 @@ export default function App() {
           products={products}
           students={students}
           teachers={teachers}
+          walletBalances={walletBalances}
           onAddTransaction={handleAddTransaction}
+          onChargeWallet={handleChargeWallet}
         />
       )}
       

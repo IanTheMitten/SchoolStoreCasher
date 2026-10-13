@@ -2,18 +2,13 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Search } from 'lucide-react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select';
+import { Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import type { CartItem, Transaction, Student, Teacher } from '../../App';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { useScanner } from '../../contexts/ScannerContext';
+import { WALLET_STEP, CASHBACK_PERCENT, cashbackFor } from '../../services/localDb';
+import { GRADES } from '../people/types';
 
 interface CustomerOption {
   id: string;
@@ -30,6 +25,7 @@ interface CashPaymentModalProps {
   cart: CartItem[];
   students?: Student[];
   teachers?: Teacher[];
+  walletBalances?: Record<string, number>;
   onComplete: (transaction: Transaction) => Promise<void> | void;
   onClose: () => void;
 }
@@ -58,46 +54,38 @@ export function CashPaymentModal({
   cart,
   students = [],
   teachers = [],
+  walletBalances = {},
   onComplete,
   onClose
 }: CashPaymentModalProps) {
   const { formatCurrency } = useCurrency();
   const { registerHandler, unregisterHandler } = useScanner();
-  const [customerSearch, setCustomerSearch] = useState('');
   const [barcodeScan, setBarcodeScan] = useState('');
-  const [customerGroupFilter, setCustomerGroupFilter] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  // Student with a usable wallet balance, waiting for the wallet/cash split to be confirmed.
+  const [walletCustomer, setWalletCustomer] = useState<CustomerOption | null>(null);
+  const [walletAmount, setWalletAmount] = useState(0);
 
-  const sortedGrades = useMemo(
-    () =>
-      Array.from(new Set(students.map((student) => student.grade).filter(Boolean)))
-        .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })),
-    [students],
+  // Wallet pays in whole steps of WALLET_STEP, never more than the balance or the total.
+  const maxWalletFor = useCallback(
+    (studentId: string) => {
+      const usable = Math.min(walletBalances[studentId] || 0, total);
+      return Math.max(0, Math.floor(usable / WALLET_STEP) * WALLET_STEP);
+    },
+    [walletBalances, total],
   );
 
-  const customerOptions = useMemo(
-    () => [...students.map(studentOption), ...teachers.map(teacherOption)],
-    [students, teachers],
-  );
+  // Every standard grade is always offered (even with no students in it yet), plus any others found in the data.
+  const sortedGrades = useMemo(() => {
+    const present = new Set(students.map((student) => student.grade).filter(Boolean));
+    const extras = Array.from(present)
+      .filter((grade) => !GRADES.includes(grade))
+      .sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
+    return [...GRADES, ...extras];
+  }, [students]);
 
-  const normalizedSearch = customerSearch.trim().toLowerCase();
-  const filteredCustomers = customerOptions.filter(
-    (customer) =>
-      (
-        customerGroupFilter === 'all' ||
-        (customerGroupFilter === 'teachers' && customer.type === 'teacher') ||
-        (customerGroupFilter.startsWith('grade:') && customer.type === 'student' && customer.group === customerGroupFilter.slice(6))
-      ) &&
-      (
-        !normalizedSearch ||
-        customer.name.toLowerCase().includes(normalizedSearch) ||
-        customer.id.toLowerCase().includes(normalizedSearch) ||
-        (customer.detail || '').toLowerCase().includes(normalizedSearch)
-      )
-  );
-
-  const completeWith = useCallback(async (customer: CustomerOption) => {
+  const completeWith = useCallback(async (customer: CustomerOption, walletPaid = 0) => {
     // Guard against a scan and a click (or a double click) both completing the sale.
     if (submittingRef.current) return;
     submittingRef.current = true;
@@ -110,10 +98,12 @@ export function CashPaymentModal({
       subtotal,
       tax,
       total,
-      paymentMethod: 'cash',
+      paymentMethod: walletPaid > 0 && walletPaid >= total ? 'wallet' : 'cash',
       customerType: customer.type,
       customerId: customer.id,
       customerName: customer.name,
+      walletPaid,
+      cashPaid: total - walletPaid,
     };
 
     try {
@@ -123,6 +113,18 @@ export function CashPaymentModal({
       setIsSubmitting(false);
     }
   }, [cart, subtotal, tax, total, onComplete]);
+
+  // Students with enough balance get the wallet step; everyone else completes right away.
+  const selectCustomer = useCallback((customer: CustomerOption) => {
+    if (submittingRef.current) return;
+    const maxWallet = customer.type === 'student' ? maxWalletFor(customer.id) : 0;
+    if (maxWallet > 0) {
+      setWalletCustomer(customer);
+      setWalletAmount(maxWallet);
+      return;
+    }
+    void completeWith(customer);
+  }, [maxWalletFor, completeWith]);
 
   // Students and teachers share one barcode namespace, so a scan can select either.
   const handleBarcodeMatch = useCallback((scannedValue: string) => {
@@ -140,7 +142,7 @@ export function CashPaymentModal({
     setBarcodeScan('');
 
     if (matchedCustomers.length === 1) {
-      void completeWith(matchedCustomers[0]);
+      selectCustomer(matchedCustomers[0]);
       return;
     }
 
@@ -152,7 +154,7 @@ export function CashPaymentModal({
     }
 
     toast.error('Barcode not found');
-  }, [students, teachers, completeWith]);
+  }, [students, teachers, selectCustomer]);
 
   // Register customer scanner handler while the modal is open
   useEffect(() => {
@@ -171,9 +173,94 @@ export function CashPaymentModal({
     <Dialog open={true} onOpenChange={(open) => { if (!open && !isSubmitting) onClose(); }}>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Who is buying?</DialogTitle>
+          <DialogTitle>{walletCustomer ? 'Pay from wallet?' : 'Who is buying?'}</DialogTitle>
         </DialogHeader>
 
+        {walletCustomer ? (() => {
+          const balance = walletBalances[walletCustomer.id] || 0;
+          const maxWallet = maxWalletFor(walletCustomer.id);
+          const amount = Math.min(Math.max(0, walletAmount), maxWallet);
+          const valid = amount % WALLET_STEP === 0;
+          return (
+            <div className="space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Student</span>
+                  <span className="text-gray-900">{walletCustomer.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Wallet balance</span>
+                  <span className="text-gray-900">{formatCurrency(balance)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total</span>
+                  <span className="text-gray-900">{formatCurrency(total)}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-gray-600 text-sm" htmlFor="wallet-amount">
+                  From wallet (steps of {formatCurrency(WALLET_STEP)}, max {formatCurrency(maxWallet)})
+                </label>
+                <Input
+                  id="wallet-amount"
+                  type="number"
+                  data-scanner-input
+                  min={0}
+                  max={maxWallet}
+                  step={WALLET_STEP}
+                  value={walletAmount}
+                  disabled={isSubmitting}
+                  onChange={(e) => setWalletAmount(Number((e.target as HTMLInputElement).value) || 0)}
+                />
+                {!valid && (
+                  <div className="text-red-600 text-sm mt-1">Use a multiple of {formatCurrency(WALLET_STEP)}.</div>
+                )}
+              </div>
+
+              <div className="rounded-lg border p-3 text-sm space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Wallet</span>
+                  <span className="text-gray-900">{formatCurrency(amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Cash to collect</span>
+                  <span className="text-gray-900">{formatCurrency(total - amount)}</span>
+                </div>
+                <div className="flex justify-between text-green-600">
+                  <span>Cashback ({CASHBACK_PERCENT}%)</span>
+                  <span>+{formatCurrency(cashbackFor(total))}</span>
+                </div>
+              </div>
+
+              <Button
+                autoFocus
+                className="w-full"
+                disabled={isSubmitting || !valid || amount <= 0}
+                onClick={() => completeWith(walletCustomer, amount)}
+              >
+                <Wallet className="size-4 mr-2" />
+                Pay {formatCurrency(amount)} from wallet
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                disabled={isSubmitting}
+                onClick={() => completeWith(walletCustomer, 0)}
+              >
+                Pay all in cash
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full"
+                disabled={isSubmitting}
+                onClick={() => setWalletCustomer(null)}
+              >
+                Back
+              </Button>
+            </div>
+          );
+        })() : (
         <div className="space-y-4">
           {/* Total */}
           <div className="bg-gray-50 rounded-lg p-4">
@@ -198,69 +285,20 @@ export function CashPaymentModal({
           />
 
           {/* Associate with a whole grade (temporary shortcut) */}
-          {sortedGrades.length > 0 && (
-            <div>
-              <div className="text-gray-600 text-sm mb-2">Or associate with a grade</div>
-              <div className="flex flex-wrap gap-2">
-                {sortedGrades.map((grade) => (
-                  <Button
-                    key={grade}
-                    variant="outline"
-                    size="sm"
-                    disabled={isSubmitting}
-                    onClick={() => completeWith({ id: grade, name: grade, type: 'grade', group: grade })}
-                  >
-                    {grade}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Pick a person */}
-          <div className="rounded border bg-white p-2">
-            <div className="relative mb-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-gray-400" />
-              <Input
-                className="pl-9"
-                placeholder="Search customer..."
-                value={customerSearch}
-                onChange={(e) => setCustomerSearch((e.target as HTMLInputElement).value)}
-              />
-            </div>
-            <div className="mb-2">
-              <Select value={customerGroupFilter} onValueChange={setCustomerGroupFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by group" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Customers</SelectItem>
-                  <SelectItem value="teachers">Teachers</SelectItem>
-                  {sortedGrades.map((grade) => (
-                    <SelectItem key={grade} value={`grade:${grade}`}>
-                      {grade}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="max-h-64 overflow-y-auto overscroll-contain border rounded">
-              {filteredCustomers.map(customer => (
-                <button
-                  key={`${customer.type}-${customer.id}`}
+          <div>
+            <div className="text-gray-600 text-sm mb-2">No barcode? Associate with a grade</div>
+            <div className="flex flex-wrap gap-2">
+              {sortedGrades.map((grade) => (
+                <Button
+                  key={grade}
+                  variant="outline"
+                  size="sm"
                   disabled={isSubmitting}
-                  onClick={() => completeWith(customer)}
-                  className="w-full text-left p-2 hover:bg-gray-50 disabled:opacity-50"
+                  onClick={() => completeWith({ id: grade, name: grade, type: 'grade', group: grade })}
                 >
-                  <div className="text-gray-900">{customer.name}</div>
-                  <div className="text-gray-500 text-sm">
-                    {customer.detail || '—'} • {customer.type}
-                  </div>
-                </button>
+                  {grade}
+                </Button>
               ))}
-              {filteredCustomers.length === 0 && (
-                <div className="p-3 text-sm text-gray-500">No customers found.</div>
-              )}
             </div>
           </div>
 
@@ -268,6 +306,7 @@ export function CashPaymentModal({
             Cancel
           </Button>
         </div>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -37,6 +37,7 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
     switch (method) {
       case 'cash': return 'Cash';
       case 'card': return 'Card';
+      case 'wallet': return 'Wallet';
       case 'student_id': return 'Student ID';
       default: return method;
     }
@@ -110,6 +111,31 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
               <span>Total</span>
               <span>{formatCurrency(transaction.total)}</span>
             </div>
+
+            {(transaction.walletPaid ?? 0) > 0 && (
+              <>
+                <div className="flex justify-between text-gray-600">
+                  <span>Paid from wallet</span>
+                  <span>{formatCurrency(transaction.walletPaid)}</span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>Paid in cash</span>
+                  <span>{formatCurrency(transaction.cashPaid ?? 0)}</span>
+                </div>
+              </>
+            )}
+            {(transaction.cashbackEarned ?? 0) > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>Cashback earned</span>
+                <span>+{formatCurrency(transaction.cashbackEarned)}</span>
+              </div>
+            )}
+            {transaction.walletBalanceAfter !== undefined && (
+              <div className="flex justify-between text-gray-900">
+                <span>Wallet balance</span>
+                <span>{formatCurrency(transaction.walletBalanceAfter)}</span>
+              </div>
+            )}
 
             {transaction.paymentMethod === 'cash' && transaction.cashReceived && (
               <>
