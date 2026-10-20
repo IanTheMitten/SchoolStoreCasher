@@ -6,6 +6,7 @@ import { CashPaymentModal } from './CashPaymentModal';
 import { ChargeWalletModal } from './ChargeWalletModal';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { roundMoney } from '../../utils/formatCurrency';
+import { TEACHER_CUSTOMER_ID } from '../../services/barcode';
 import type { CartItem, Student, Teacher, Transaction } from '../../App';
 
 interface CartSectionProps {
@@ -17,6 +18,7 @@ interface CartSectionProps {
   onRemoveFromCart: (productId: string) => void;
   onCompleteTransaction: (transaction: Transaction) => Promise<void>;
   onChargeWallet: (studentId: string, amount: number) => Promise<number>;
+  teacherMode?: boolean;
 }
 
 const TAX_RATE = 0.0; // Set to 0 for no tax, or e.g., 0.08 for 8%
@@ -29,10 +31,12 @@ export function CartSection({
   onUpdateQuantity,
   onRemoveFromCart,
   onCompleteTransaction,
-  onChargeWallet
+  onChargeWallet,
+  teacherMode = false
 }: CartSectionProps) {
   const [paymentMode, setPaymentMode] = useState<'cash' | null>(null);
   const [isCharging, setIsCharging] = useState(false);
+  const [isSubmittingTeacher, setIsSubmittingTeacher] = useState(false);
   const { formatCurrency } = useCurrency();
 
   const rawSubtotal = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
@@ -43,6 +47,30 @@ export function CartSection({
   const handlePaymentComplete = async (transaction: Transaction) => {
     await onCompleteTransaction(transaction);
     setPaymentMode(null);
+  };
+
+  // Teachers pay by transfer outside the app; the sale is recorded as cash under the shared "Teacher" customer.
+  const handleTeacherPurchase = async () => {
+    if (isSubmittingTeacher) return;
+    setIsSubmittingTeacher(true);
+    try {
+      await onCompleteTransaction({
+        id: `TXN-${Date.now()}`,
+        timestamp: new Date(),
+        items: cart,
+        subtotal,
+        tax,
+        total,
+        paymentMethod: 'cash',
+        customerType: 'teacher',
+        customerId: TEACHER_CUSTOMER_ID,
+        customerName: 'Teacher',
+        walletPaid: 0,
+        cashPaid: total,
+      });
+    } finally {
+      setIsSubmittingTeacher(false);
+    }
   };
 
   return (
@@ -140,22 +168,34 @@ export function CartSection({
 
       {/* Payment Buttons */}
       <div className="bg-white border-t border-gray-200 p-4 space-y-3">
-        <Button
-          onClick={() => setPaymentMode('cash')}
-          disabled={cart.length === 0}
-          className="w-full h-[70px]"
-          variant="outline"
-        >
-          Purchase
-        </Button>
-        <Button
-          onClick={() => setIsCharging(true)}
-          className="w-full"
-          variant="ghost"
-        >
-          <Wallet className="size-4 mr-2" />
-          Charge student wallet
-        </Button>
+        {teacherMode ? (
+          <Button
+            onClick={handleTeacherPurchase}
+            disabled={cart.length === 0 || isSubmittingTeacher}
+            className="w-full h-[70px]"
+          >
+            Purchase {cart.length > 0 && formatCurrency(total)}
+          </Button>
+        ) : (
+          <>
+            <Button
+              onClick={() => setPaymentMode('cash')}
+              disabled={cart.length === 0}
+              className="w-full h-[70px]"
+              variant="outline"
+            >
+              Purchase
+            </Button>
+            <Button
+              onClick={() => setIsCharging(true)}
+              className="w-full"
+              variant="ghost"
+            >
+              <Wallet className="size-4 mr-2" />
+              Charge student wallet
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Cash Payment Modal */}

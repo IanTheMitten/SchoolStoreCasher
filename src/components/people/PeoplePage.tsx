@@ -1,13 +1,16 @@
 import '../../styles/people.css';
 import { useMemo, useState } from 'react';
-import { FileUp, Plus, Search } from 'lucide-react';
+import { Barcode, FileUp, Plus, Search } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useCurrency } from '../../contexts/CurrencyContext';
 import { AddPersonDialog } from './AddPersonDialog';
 import { PersonPanel } from './PersonPanel';
+import { BarcodeCard } from './BarcodeCard';
+import { TEACHER_BARCODE } from '../../services/barcode';
 import { ImportStudentsDialog } from './ImportStudentsDialog';
 import type { StudentCsvRow } from './csvImport';
 import type { StudentImportMode, StudentImportResult } from '../../services/localDb';
@@ -40,6 +43,7 @@ export function PeoplePage({ transactions, students, teachers, products, onUpdat
   const [sort, setSort] = useState<SortKey>('name');
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [teacherBarcodeOpen, setTeacherBarcodeOpen] = useState(false);
   const [selected, setSelected] = useState<{ kind: PersonKind; id: string } | null>(null);
 
   const people = useMemo<Person[]>(() => {
@@ -91,7 +95,7 @@ export function PeoplePage({ transactions, students, teachers, products, onUpdat
   const actions: PeopleActions = {
     students,
     teachers,
-    takenBarcodes: () => [...students, ...teachers, ...products].map(x => x.barcode).filter(Boolean) as string[],
+    takenBarcodes: () => [TEACHER_BARCODE, ...[...students, ...teachers, ...products].map(x => x.barcode).filter(Boolean) as string[]],
     onUpdateStudents,
     onCreateTeacher,
     onUpdateTeacher,
@@ -128,7 +132,11 @@ export function PeoplePage({ transactions, students, teachers, products, onUpdat
             <SelectItem value="spent">Sort: Total spent</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" className="ml-auto" onClick={() => setImportOpen(true)}>
+        <Button variant="outline" className="ml-auto" onClick={() => setTeacherBarcodeOpen(true)}>
+          <Barcode className="size-4 mr-2" />
+          Teacher barcode
+        </Button>
+        <Button variant="outline" onClick={() => setImportOpen(true)}>
           <FileUp className="size-4 mr-2" />
           Import CSV
         </Button>
@@ -186,6 +194,19 @@ export function PeoplePage({ transactions, students, teachers, products, onUpdat
           </div>
         )}
       </div>
+
+      <Dialog open={teacherBarcodeOpen} onOpenChange={setTeacherBarcodeOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Shared teacher barcode</DialogTitle>
+            <DialogDescription>
+              Scan on the lock screen to let a teacher add items and press Purchase without the password.
+              Sales are recorded as cash under "Teacher".
+            </DialogDescription>
+          </DialogHeader>
+          <BarcodeCard value={TEACHER_BARCODE} name="Teacher" subtitle="Self-checkout" />
+        </DialogContent>
+      </Dialog>
 
       <AddPersonDialog
         open={addOpen}

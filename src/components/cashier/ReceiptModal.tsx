@@ -36,7 +36,6 @@ export function ReceiptModal({ transaction, onClose }: ReceiptModalProps) {
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
       case 'cash': return 'Cash';
-      case 'card': return 'Card';
       case 'wallet': return 'Wallet';
       case 'student_id': return 'Student ID';
       default: return method;
