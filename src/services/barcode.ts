@@ -20,7 +20,12 @@ export const eanCheckDigit = (body: string): number => {
   return (10 - (sum % 10)) % 10;
 };
 
-export const isValidEan = (code: string): boolean =>
+// One barcode shared by all teachers: scanning it on the lock screen opens teacher self-checkout.
+const TEACHER_BARCODE_BODY = `${STORE_PREFIX}000000000`;
+export const TEACHER_BARCODE = TEACHER_BARCODE_BODY + eanCheckDigit(TEACHER_BARCODE_BODY);
+export const TEACHER_CUSTOMER_ID = 'teacher-shared';
+
+export const isValidEan =(code: string): boolean =>
   /^\d+$/.test(code) && (code.length === 13 || code.length === 8) &&
   eanCheckDigit(code.slice(0, -1)) === Number(code[code.length - 1]);
 

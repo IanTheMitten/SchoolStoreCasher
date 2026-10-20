@@ -12,6 +12,8 @@ import { localDb } from './services/localDb';
 import type { StudentImportMode } from './services/localDb';
 import { fileSync } from './services/fileSync';
 import { ScannerProvider } from './contexts/ScannerContext';
+import { LockScreen } from './components/LockScreen';
+import { Button } from './components/ui/button';
 
 export interface Product {
   id: string;
@@ -57,7 +59,7 @@ export interface Transaction {
   tax: number;
   total: number;
   // 'wallet' = fully paid from the student's wallet; a split payment stays 'cash' with walletPaid > 0.
-  paymentMethod: 'cash' | 'card' | 'wallet';
+  paymentMethod: 'cash' | 'wallet';
   // 'grade' is a temporary shortcut: customerId/customerName hold the grade label.
   customerType?: 'student' | 'teacher' | 'grade';
   customerId?: string;
@@ -95,6 +97,8 @@ export interface Expense {
 const DEFAULT_PASSWORD = import.meta.env.VITE_APP_PASSWORD || 'schoolstore';
 const DEFAULT_TIMEOUT_MINUTES = 10;
 const LUNCH_TIMEOUT_MINUTES = 40;
+// Teacher self-checkout (opened by scanning the shared teacher barcode) locks again quickly.
+const TEACHER_IDLE_TIMEOUT_MS = 2 * 60 * 1000;
 
 const getInactivityTimeoutMs = (date: Date = new Date()) => {
   const hour = date.getHours();
@@ -107,7 +111,7 @@ const getInactivityTimeoutMs = (date: Date = new Date()) => {
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
-  const [passwordInput, setPasswordInput] = useState('');
+  const [teacherMode, setTeacherMode] = useState(false);
   const [currentPage, setCurrentPage] = useState<'cashier' | 'inventory' | 'budget' | 'people' | 'statistic'>('cashier');
   const [products, setProducts] = useState<Product[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -140,14 +144,13 @@ export default function App() {
     setCheckingAuth(false);
   }, []);
 
-  const handlePasswordSubmit = () => {
-    if (passwordInput === DEFAULT_PASSWORD) {
+  const handlePasswordSubmit = (password: string) => {
+    if (password === DEFAULT_PASSWORD) {
       setIsAuthenticated(true);
       lastActivityAtRef.current = Date.now();
       try {
         localStorage.setItem('schoolstore_auth', 'ok');
       } catch {}
-      setPasswordInput('');
     } else {
       toast.error('Incorrect password');
     }
@@ -158,12 +161,20 @@ export default function App() {
       localStorage.removeItem('schoolstore_auth');
     } catch {}
     setIsAuthenticated(false);
-    setPasswordInput('');
     toast.success(reason === 'timeout' ? 'Session timed out. Please enter password again.' : 'Logged out');
   }, []);
 
+  const handleTeacherScan = useCallback(() => {
+    lastActivityAtRef.current = Date.now();
+    setTeacherMode(true);
+  }, []);
+
+  const handleExitTeacherMode = useCallback(() => {
+    setTeacherMode(false);
+  }, []);
+
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isAuthenticated && !teacherMode) {
       return;
     }
 
@@ -186,9 +197,15 @@ export default function App() {
     const intervalId = window.setInterval(() => {
       const now = Date.now();
       const elapsed = now - lastActivityAtRef.current;
-      const timeoutMs = getInactivityTimeoutMs(new Date(now));
 
-      if (elapsed >= timeoutMs) {
+      if (teacherMode) {
+        if (elapsed >= TEACHER_IDLE_TIMEOUT_MS) {
+          setTeacherMode(false);
+        }
+        return;
+      }
+
+      if (elapsed >= getInactivityTimeoutMs(new Date(now))) {
         handleLogout('timeout');
       }
     }, 15 * 1000);
@@ -199,7 +216,7 @@ export default function App() {
       });
       window.clearInterval(intervalId);
     };
-  }, [isAuthenticated, handleLogout]);
+  }, [isAuthenticated, teacherMode, handleLogout]);
 
   // Ask the browser not to evict our IndexedDB data (best effort, silent)
   useEffect(() => {
@@ -672,31 +689,12 @@ export default function App() {
     return null;
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !teacherMode) {
     return (
-      <>
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="bg-white shadow-md rounded-lg p-6 w-full max-w-sm space-y-4">
-            <h1 className="text-lg font-semibold text-gray-900 text-center">School Store</h1>
-            <p className="text-sm text-gray-600 text-center">Enter password to access</p>
-            <input
-              type="password"
-              className="w-full border rounded px-3 py-2 text-sm"
-              placeholder="Password"
-              value={passwordInput}
-              onChange={(e) => setPasswordInput(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
-            />
-            <button
-              onClick={handlePasswordSubmit}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 rounded"
-            >
-              Enter
-            </button>
-          </div>
-        </div>
+      <ScannerProvider>
+        <LockScreen onPasswordSubmit={handlePasswordSubmit} onTeacherScan={handleTeacherScan} />
         <Toaster />
-      </>
+      </ScannerProvider>
     );
   }
 
@@ -708,6 +706,32 @@ export default function App() {
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>
+    );
+  }
+
+  if (teacherMode) {
+    return (
+      <ScannerProvider>
+        <div className="min-h-screen bg-gray-50">
+          <div className="h-[70px] bg-white border-b border-gray-200 px-6 flex items-center justify-between">
+            <div>
+              <div className="text-gray-900 font-medium">Teacher purchase</div>
+              <div className="text-gray-500 text-sm">Scan or pick items, then press Purchase. Locks after purchase.</div>
+            </div>
+            <Button variant="outline" onClick={handleExitTeacherMode}>Cancel</Button>
+          </div>
+          <CashierPage
+            products={products}
+            students={students}
+            teachers={teachers}
+            walletBalances={walletBalances}
+            onAddTransaction={handleAddTransaction}
+            onChargeWallet={handleChargeWallet}
+            onTeacherPurchaseDone={handleExitTeacherMode}
+          />
+        </div>
+        <Toaster />
+      </ScannerProvider>
     );
   }
 

@@ -4,7 +4,7 @@ import { Button } from './ui/button';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Alert, AlertDescription } from './ui/alert';
-import { ShoppingCart, CreditCard, Banknote, Wallet, AlertCircle } from 'lucide-react';
+import { ShoppingCart, Banknote, Wallet, AlertCircle } from 'lucide-react';
 import type { CartItem, Student } from '../App';
 import { useCurrency } from '../contexts/CurrencyContext';
 
@@ -28,7 +28,6 @@ interface CartPanelProps {
 
 const paymentMethods = [
   { value: 'cash', label: 'Cash', icon: Banknote },
-  { value: 'card', label: 'Card', icon: CreditCard },
   { value: 'bank', label: 'Bank Transfer', icon: Wallet }
 ];
 

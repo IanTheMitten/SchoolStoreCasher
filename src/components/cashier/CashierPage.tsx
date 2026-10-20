@@ -13,9 +13,11 @@ interface CashierPageProps {
   walletBalances: Record<string, number>;
   onAddTransaction: (transaction: Transaction) => Promise<Transaction>;
   onChargeWallet: (studentId: string, amount: number) => Promise<number>;
+  // Set only in teacher self-checkout: Purchase records the sale directly, then this locks the store again.
+  onTeacherPurchaseDone?: () => void;
 }
 
-export function CashierPage({ products, students, teachers = [], walletBalances, onAddTransaction, onChargeWallet }: CashierPageProps) {
+export function CashierPage({ products, students, teachers = [], walletBalances, onAddTransaction, onChargeWallet, onTeacherPurchaseDone }: CashierPageProps) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [completedTransaction, setCompletedTransaction] = useState<Transaction | null>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -142,8 +144,13 @@ export function CashierPage({ products, students, teachers = [], walletBalances,
   const handleCompleteTransaction = async (transaction: Transaction) => {
     try {
       const saved = await onAddTransaction(transaction);
-      setCompletedTransaction(saved);
       setCart([]);
+      if (onTeacherPurchaseDone) {
+        toast.success('Purchase recorded. Thank you!');
+        onTeacherPurchaseDone();
+        return;
+      }
+      setCompletedTransaction(saved);
       toast.success('Transaction completed successfully!');
     } catch (error) {
       toast.error(
@@ -197,6 +204,7 @@ export function CashierPage({ products, students, teachers = [], walletBalances,
           onRemoveFromCart={handleRemoveFromCart}
           onCompleteTransaction={handleCompleteTransaction}
           onChargeWallet={onChargeWallet}
+          teacherMode={Boolean(onTeacherPurchaseDone)}
         />
       </div>
 

@@ -77,7 +77,7 @@ export const salesAPI = {
     customerId?: string | null;
     customerName?: string | null;
     items: Array<{ productId: string; quantity: number; unitPrice?: number; unitCostAtSale?: number }>;
-    paymentMethod: 'cash' | 'card';
+    paymentMethod: 'cash';
     walletPaid?: number;
     timestamp?: string;
   }) => {

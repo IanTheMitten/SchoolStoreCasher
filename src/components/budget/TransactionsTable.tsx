@@ -29,7 +29,6 @@ export function TransactionsTable({ transactions, students = [], teachers = [] }
   const getPaymentMethodLabel = (method: string) => {
     switch (method) {
       case 'cash': return 'Cash';
-      case 'card': return 'Card';
       case 'wallet': return 'Wallet';
       case 'student_id': return 'Student ID';
       default: return method;
@@ -117,10 +116,10 @@ export function TransactionsTable({ transactions, students = [], teachers = [] }
                           }
 
                           const teacher = teachers.find(t => t.id === tx.customerId);
-                          if (teacher) {
+                          if (teacher || tx.customerType === 'teacher') {
                             return (
                               <div>
-                                <div className="text-gray-900 text-sm">{teacher.name}</div>
+                                <div className="text-gray-900 text-sm">{teacher?.name || tx.customerName || 'Teacher'}</div>
                                 <div className="text-gray-500 text-xs">Teacher</div>
                               </div>
                             );
