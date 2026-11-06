@@ -47,8 +47,9 @@ Configuration via VITE environment variables:
 All data is stored locally in IndexedDB. The database structure is defined in `services/localDb.ts`:
 
 - **Database Name**: `schoolstore-db`
-- **Version**: 3 (increment when changing schema)
-- **Object Stores**: products, students, teachers, transactions, expenses, categories, inventoryAdjustments
+- **Version**: 4 (increment when changing schema)
+- **Object Stores**: products, students, teachers, transactions, expenses, categories, inventoryAdjustments, walletEntries
+- **Product fields are snake_case in storage** (`unit_cost`, `reorder_level`); `App.tsx` `toProduct` maps them to the camelCase `Product` type and also reads legacy camelCase `reorderLevel`. Write snake_case.
 
 All data access happens through the service layer. Never access IndexedDB directly outside of `localDb.ts`.
 
@@ -108,6 +109,9 @@ function MyComponent() {
 ```
 
 Higher `priority` wins when multiple handlers are registered. The context manages the scanner stream lifecycle automatically. Keyboard-wedge scans are caught page-wide (no focused input needed) by `startKeyboardWedge` in `services/scanner.ts`; inputs marked `data-scanner-input` opt out and handle Enter themselves.
+
+### README screenshots
+`scripts/readme-shots/run.sh` regenerates `docs/screenshots/` from invented demo data on port 3100 (never touches `data/db.json`). Update selectors in `capture.mjs` when UI labels change.
 
 ## Common Tasks
 
