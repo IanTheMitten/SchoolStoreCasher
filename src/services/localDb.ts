@@ -373,9 +373,12 @@ export const localDb = {
 
     existing.stock = newStock;
     if (adjustment.unit_cost !== undefined) existing.unit_cost = adjustment.unit_cost;
+    const now = new Date().toISOString();
+    if (adjustment.reason === 'restock' && (adjustment.change || 0) > 0) existing.lastRestock = now;
     store.put(existing);
 
     adjustmentStore.put(createInventoryAdjustment({
+      date: now,
       productId: id,
       quantity: adjustment.change || 0,
       reason: adjustment.reason || 'correction',

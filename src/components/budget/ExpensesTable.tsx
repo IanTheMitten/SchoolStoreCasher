@@ -62,6 +62,9 @@ export function ExpensesTable({ expenses, products, onAddExpense }: ExpensesTabl
                         {expense.note && (
                           <div className="text-gray-500 text-xs truncate">{expense.note}</div>
                         )}
+                        {expense.receiptRef && (
+                          <div className="text-gray-400 text-xs truncate">Receipt: {expense.receiptRef}</div>
+                        )}
                       </td>
                       <td className="p-2 text-right text-gray-900">{formatCurrency(expense.amount)}</td>
                     </tr>
