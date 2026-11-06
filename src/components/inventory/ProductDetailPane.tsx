@@ -1,23 +1,52 @@
+import { useEffect, useState } from 'react';
 import { X, Pencil, Clock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { useCurrency } from '../../contexts/CurrencyContext';
-import type { Product, StockAdjustment } from '../../App';
+import { productsAPI } from '../../services/api';
+import type { Product } from '../../App';
 
 interface ProductDetailPaneProps {
   product: Product;
-  stockHistory: StockAdjustment[];
   onClose: () => void;
   onEdit: () => void;
 }
 
+interface HistoryEntry {
+  id: string;
+  date: Date;
+  quantity: number;
+  reason: string;
+  reference: string;
+}
+
 export function ProductDetailPane({
   product,
-  stockHistory,
   onClose,
   onEdit
 }: ProductDetailPaneProps) {
   const { formatCurrency } = useCurrency();
+  const [stockHistory, setStockHistory] = useState<HistoryEntry[]>([]);
+  const [historyError, setHistoryError] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => setShowAll(false), [product.id]);
+
+  // Reload whenever stock moves (sale, restock, correction) so the list matches the stock figure.
+  useEffect(() => {
+    let cancelled = false;
+    productsAPI.getAdjustmentsByProduct(product.id)
+      .then((rows: any[]) => {
+        if (cancelled) return;
+        setHistoryError(false);
+        setStockHistory(rows.map(r => ({ ...r, date: new Date(r.date) })));
+      })
+      .catch((error) => {
+        console.error('Failed to load stock history', error);
+        if (!cancelled) setHistoryError(true);
+      });
+    return () => { cancelled = true; };
+  }, [product.id, product.stock]);
 
   const getStockStatus = () => {
     const ratio = product.stock / product.reorderLevel;
@@ -34,7 +63,7 @@ export function ProductDetailPane({
   };
 
   const status = getStockStatus();
-  const recentHistory = stockHistory.slice(-5).reverse();
+  const recentHistory = (showAll ? stockHistory : stockHistory.slice(-5)).slice().reverse();
 
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('en-US', {
@@ -51,6 +80,7 @@ export function ProductDetailPane({
       case 'correction': return 'Correction';
       case 'damage': return 'Damage';
       case 'return': return 'Return';
+      case 'sale': return 'Sale';
       default: return reason;
     }
   };
@@ -110,7 +140,11 @@ export function ProductDetailPane({
             <div className="text-gray-600 text-sm">Stock History</div>
           </div>
 
-          {recentHistory.length === 0 ? (
+          {historyError ? (
+            <div className="text-red-600 text-sm text-center py-4">
+              Could not load history
+            </div>
+          ) : recentHistory.length === 0 ? (
             <div className="text-gray-500 text-sm text-center py-4">
               No history available
             </div>
@@ -134,8 +168,8 @@ export function ProductDetailPane({
           )}
 
           {stockHistory.length > 5 && (
-            <Button variant="link" size="sm" className="w-full mt-2 text-xs">
-              View full history ({stockHistory.length} entries)
+            <Button variant="link" size="sm" className="w-full mt-2 text-xs" onClick={() => setShowAll(v => !v)}>
+              {showAll ? 'Show recent only' : `View full history (${stockHistory.length} entries)`}
             </Button>
           )}
         </div>

@@ -160,7 +160,7 @@ export function ProductDialog({
         description: formData.description,
         category: formData.category,
         stock: parseInt(formData.stock),
-        reorderLevel: parseInt(formData.reorderLevel),
+        reorder_level: parseInt(formData.reorderLevel),
         supplier: formData.supplier || undefined,
         barcode: barcode || undefined
       }) as any;
@@ -174,7 +174,7 @@ export function ProductDialog({
         description: result.description || formData.description,
         category: result.category || formData.category,
         stock: result.stock,
-        reorderLevel: result.reorderLevel || parseInt(formData.reorderLevel),
+        reorderLevel: result.reorder_level ?? parseInt(formData.reorderLevel),
         supplier: result.supplier,
         barcode: result.barcode,
       });

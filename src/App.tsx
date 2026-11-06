@@ -108,6 +108,30 @@ const getInactivityTimeoutMs = (date: Date = new Date()) => {
   return timeoutMinutes * 60 * 1000;
 };
 
+// Stored products use snake_case unit_cost / reorder_level. Older builds saved reorderLevel in
+// camelCase, so read both. Products restocked before lastRestock was persisted fall back to the
+// date of their latest restock adjustment.
+const toProduct = (p: any, lastRestockById?: Map<string, string>): Product => {
+  const lastRestock = p.lastRestock ?? lastRestockById?.get(String(p.id));
+  return {
+    ...p,
+    unitCost: Number(p.unit_cost ?? p.unitCost ?? 0),
+    reorderLevel: Number(p.reorder_level ?? p.reorderLevel ?? 0),
+    lastRestock: lastRestock ? new Date(lastRestock) : undefined,
+  };
+};
+
+const latestRestockDates = (adjustments: Array<{ productId: string; reason: string; quantity: number; date: string }>) => {
+  const latest = new Map<string, string>();
+  for (const a of adjustments) {
+    if (a.reason !== 'restock' || a.quantity <= 0) continue;
+    const key = String(a.productId);
+    const prev = latest.get(key);
+    if (!prev || new Date(a.date) > new Date(prev)) latest.set(key, a.date);
+  }
+  return latest;
+};
+
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -118,7 +142,6 @@ export default function App() {
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [stockHistory, setStockHistory] = useState<StockAdjustment[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [walletBalances, setWalletBalances] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
@@ -232,7 +255,7 @@ export default function App() {
         setLoading(true);
         // Load data/db.json into IndexedDB (or seed it) before reading anything.
         await fileSync.init();
-        const [productsData, studentsData, transactionsData, expensesData, teachersData, categoriesData, balancesData] = await Promise.all([
+        const [productsData, studentsData, transactionsData, expensesData, teachersData, categoriesData, balancesData, adjustmentsData] = await Promise.all([
           productsAPI.getAll(),
           studentsAPI.getAll(),
           salesAPI.getAll(),
@@ -240,17 +263,14 @@ export default function App() {
           teachersAPI.getAll(),
           categoriesAPI.getAll(),
           walletAPI.getBalances(),
+          productsAPI.getAdjustments(),
         ]);
 
         setWalletBalances(balancesData);
 
         // Transform API data to match frontend types
-        setProducts((productsData as any[]).map(p => ({
-          ...p,
-          unitCost: p.unit_cost || 0,
-          reorderLevel: p.reorder_level || 0,
-          lastRestock: p.lastRestock ? new Date(p.lastRestock) : undefined,
-        })));
+        const lastRestockById = latestRestockDates(adjustmentsData as any[]);
+        setProducts((productsData as any[]).map(p => toProduct(p, lastRestockById)));
 
         setStudents(studentsData as Student[]);
 
@@ -299,6 +319,7 @@ export default function App() {
           date: new Date(exp.datetime),
           productId: exp.related_product_id,
           purchaseQuantity: exp.purchase_quantity,
+          receiptRef: exp.receipt_ref,
         })));
 
       } catch (error) {
@@ -393,12 +414,9 @@ export default function App() {
 
       // Refresh products to get updated stock
       const updatedProducts = await productsAPI.getAll() as any[];
-      setProducts(updatedProducts.map(p => ({
-        ...p,
-        unitCost: p.unit_cost || 0,
-        reorderLevel: p.reorder_level || 0,
-        lastRestock: p.lastRestock ? new Date(p.lastRestock) : undefined,
-      })));
+      // Keep lastRestock from state: it may be derived from history rather than stored.
+      const lastRestockById = new Map(products.filter(p => p.lastRestock).map(p => [p.id, p.lastRestock!.toISOString()]));
+      setProducts(updatedProducts.map(p => toProduct(p, lastRestockById)));
 
       return newTransaction;
     } catch (error: any) {
@@ -456,7 +474,7 @@ export default function App() {
             stock: product.stock,
             category: product.category,
             description: product.description,
-            reorderLevel: product.reorderLevel,
+            reorder_level: product.reorderLevel,
             supplier: product.supplier,
             barcode: product.barcode,
           })
@@ -482,9 +500,6 @@ export default function App() {
         user: adjustment.user,
       }) as any;
 
-      // Update local state
-      setStockHistory((prev: StockAdjustment[]) => [...prev, adjustment]);
-      
       const updatedProducts = products.map((product: Product) => {
         if (product.id === adjustment.productId) {
           return { 
@@ -540,6 +555,7 @@ export default function App() {
         note: expense.note,
         related_product_id: expense.productId,
         purchase_quantity: expense.purchaseQuantity,
+        receipt_ref: expense.receiptRef,
         datetime: expense.date.toISOString(),
       }) as any;
 
@@ -758,7 +774,6 @@ export default function App() {
       {currentPage === 'inventory' && (
         <InventoryPage 
           products={products}
-          stockHistory={stockHistory}
           onUpdateProducts={handleUpdateProducts}
           onAddStockAdjustment={handleAddStockAdjustment}
           categories={categories}

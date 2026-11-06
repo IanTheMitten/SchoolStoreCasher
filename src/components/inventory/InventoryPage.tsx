@@ -10,7 +10,6 @@ import type { Product, StockAdjustment } from '../../App';
 
 interface InventoryPageProps {
   products: Product[];
-  stockHistory: StockAdjustment[];
   onUpdateProducts: (products: Product[]) => Promise<void> | void;
   onAddStockAdjustment: (adjustment: StockAdjustment) => Promise<void> | void;
   categories?: { id: string; name: string }[];
@@ -20,7 +19,6 @@ interface InventoryPageProps {
 
 export function InventoryPage({
   products,
-  stockHistory,
   onUpdateProducts,
   onAddStockAdjustment
   ,categories = [], onCreateCategory, onDeleteCategory
@@ -154,7 +152,6 @@ export function InventoryPage({
         <div className="w-[20%] border-l border-gray-200 overflow-auto">
           <ProductDetailPane
             product={selectedProduct}
-            stockHistory={stockHistory.filter(h => h.productId === selectedProduct.id)}
             onClose={() => setSelectedProduct(null)}
             onEdit={() => openEdit(selectedProduct)}
           />
